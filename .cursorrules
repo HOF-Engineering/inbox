@@ -1,0 +1,71 @@
+# Cursor Initial Exploration Prompt
+# Paste this in Cursor chat ONCE when you first open the project
+
+---
+
+You are working on a fork of **Chatwoot** — an open-source omnichannel customer support platform (MIT License). This fork is customized for **HOF Immigration**, an immigration consultancy firm in Pakistan/UAE that uses WhatsApp to manage client cases.
+
+## Your first task — Explore and understand this codebase:
+
+**Step 1 — Read these files in order:**
+1. `README.md` — project overview
+2. `Gemfile` — all Ruby dependencies and versions
+3. `package.json` — all Node/JS dependencies
+4. `config/routes.rb` — all routes (understand the API structure)
+5. `db/schema.rb` — full database schema (this is the source of truth for data models)
+6. `Procfile` and `Procfile.dev` — how the app starts
+7. `.env.example` — all required environment variables
+8. `app/models/conversation.rb` — core model
+9. `app/models/message.rb` — core model
+10. `app/models/user.rb` — core model
+11. `app/models/account.rb` — multi-tenancy model
+12. `app/javascript/` — scan directory structure only, don't read every file
+
+**Step 2 — After reading, generate:**
+
+A. **SETUP_GUIDE.md** — Complete local development setup:
+   - Exact versions of Ruby, Node, PostgreSQL, Redis needed
+   - Every command to run in order (install → setup → start)
+   - Common errors and fixes
+   - How to run tests
+
+B. **ARCHITECTURE.md** — How this app works:
+   - Request flow (browser → Rails → DB)
+   - How real-time messaging works (ActionCable/WebSockets)
+   - How background jobs work (Sidekiq)
+   - How WhatsApp integration works
+   - How multi-tenancy works (accounts)
+   - Frontend architecture (Vue.js components/stores)
+
+**Step 3 — Rules you must follow for ALL future work:**
+
+Read the `.cursorrules` file in the root of this project.
+Acknowledge every rule and confirm you understand them.
+
+**Step 4 — Identify HOF customization opportunities:**
+
+Based on the codebase, identify the best places to add:
+1. SLA alert job (agent hasn't replied in X hours → email admin)
+2. HubSpot webhook sync (conversation resolved → HubSpot update)
+3. Custom immigration case timeline
+
+For each, tell me:
+- Which existing files are most relevant
+- What new files you'd create
+- Any risks or conflicts with existing code
+
+---
+
+**Important rules for you:**
+- This is open-source (MIT) — you CAN read all files freely
+- When you encounter something unclear → search https://github.com/chatwoot/chatwoot/issues first
+- When you need Chatwoot API docs → check https://developers.chatwoot.com
+- When you need Rails docs → check https://api.rubyonrails.org
+- NEVER modify `db/schema.rb` directly
+- NEVER edit existing migration files
+- NEVER touch the `enterprise/` directory
+- If you are about to change a core model (conversation, message, user, account) → STOP and ask me first
+- All HOF-specific code goes in `HOF::` namespace
+- Commit all HOF changes on branch `hof-main` only
+
+Start with Step 1 now. Read the files and report back what you found.
