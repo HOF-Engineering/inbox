@@ -1,71 +1,174 @@
-# Cursor Initial Exploration Prompt
-# Paste this in Cursor chat ONCE when you first open the project
+# HOF Chatwoot — Cursor AI Rules
+# Chatwoot open-source fork customized for HOF Immigration internal use
+# MIT License — internal use only, not for resale
+
+## PROJECT OVERVIEW
+This is a fork of Chatwoot (https://github.com/chatwoot/chatwoot) — an open-source
+omnichannel customer support platform. HOF Immigration is customizing it for internal
+WhatsApp-based case management and compliance tracking.
+
+**Key context:**
+- Original repo: https://github.com/chatwoot/chatwoot
+- Our use case: Case managers chatting with immigration clients over WhatsApp
+- Primary concern: Compliance visibility — admins must see all conversations
+- Stack: Ruby on Rails (backend) + Vue.js (frontend) + PostgreSQL + Redis (Valkey)
+- Deployment: Railway.app with custom domain inbox.hofmigration.com
 
 ---
 
-You are working on a fork of **Chatwoot** — an open-source omnichannel customer support platform (MIT License). This fork is customized for **HOF Immigration**, an immigration consultancy firm in Pakistan/UAE that uses WhatsApp to manage client cases.
+## TECH STACK — UNDERSTAND BEFORE TOUCHING ANYTHING
 
-## Your first task — Explore and understand this codebase:
+### Backend
+- Ruby on Rails 7.x (API + server-side rendering)
+- Sidekiq (background jobs via Redis)
+- PostgreSQL (primary database)
+- Redis/Valkey (queues, caching, ActionCable)
+- Action Cable (WebSockets for real-time)
 
-**Step 1 — Read these files in order:**
-1. `README.md` — project overview
-2. `Gemfile` — all Ruby dependencies and versions
-3. `package.json` — all Node/JS dependencies
-4. `config/routes.rb` — all routes (understand the API structure)
-5. `db/schema.rb` — full database schema (this is the source of truth for data models)
-6. `Procfile` and `Procfile.dev` — how the app starts
-7. `.env.example` — all required environment variables
-8. `app/models/conversation.rb` — core model
-9. `app/models/message.rb` — core model
-10. `app/models/user.rb` — core model
-11. `app/models/account.rb` — multi-tenancy model
-12. `app/javascript/` — scan directory structure only, don't read every file
+### Frontend
+- Vue.js 3 (component framework)
+- Vite (build tool)
+- Pinia (state management)
+- Tailwind CSS + custom design tokens
 
-**Step 2 — After reading, generate:**
+### Key directories to understand first:
+```
+app/
+  controllers/    → Rails API controllers
+  models/         → ActiveRecord models
+  jobs/           → Sidekiq background jobs
+  views/          → Mailer templates (email)
+  javascript/     → Vue.js frontend
+    components/   → Reusable Vue components
+    views/        → Page-level Vue components
+    store/        → Pinia state stores
+config/
+  routes.rb       → All API and web routes
+  database.yml    → DB configuration
+db/
+  schema.rb       → Current DB schema (source of truth)
+  migrate/        → All migrations
+enterprise/       → ENTERPRISE LICENSE — READ RULES BELOW
+spec/             → RSpec tests
+```
 
-A. **SETUP_GUIDE.md** — Complete local development setup:
-   - Exact versions of Ruby, Node, PostgreSQL, Redis needed
-   - Every command to run in order (install → setup → start)
-   - Common errors and fixes
-   - How to run tests
 
-B. **ARCHITECTURE.md** — How this app works:
-   - Request flow (browser → Rails → DB)
-   - How real-time messaging works (ActionCable/WebSockets)
-   - How background jobs work (Sidekiq)
-   - How WhatsApp integration works
-   - How multi-tenancy works (accounts)
-   - Frontend architecture (Vue.js components/stores)
+## STRICT RULES — READ BEFORE ANY CHANGE
 
-**Step 3 — Rules you must follow for ALL future work:**
+### ❌ NEVER TOUCH — ASK USER FIRST:
+```
+enterprise/                   → Separate license, do not touch
+db/schema.rb                  → Never edit directly, only via migrations
+config/credentials.yml.enc    → Encrypted secrets
+Gemfile.lock                  → Only changes via bundle install
+yarn.lock                     → Only changes via yarn install
+.github/                      → CI/CD workflows
+spec/                         → Do not break existing tests
+```
 
-Read the `.cursorrules` file in the root of this project.
-Acknowledge every rule and confirm you understand them.
+### ⚠️ TOUCH WITH EXTREME CAUTION — ALWAYS ASK USER:
+```
+config/routes.rb              → Adding routes = ok, removing = ask
+app/models/user.rb            → Core auth model — very sensitive
+app/models/account.rb         → Multi-tenancy core
+app/models/conversation.rb    → Core messaging model
+app/models/message.rb         → Core message model
+app/controllers/api/          → Existing API endpoints — don't break
+db/migrate/                   → Never edit existing migrations, only add new ones
+```
 
-**Step 4 — Identify HOF customization opportunities:**
-
-Based on the codebase, identify the best places to add:
-1. SLA alert job (agent hasn't replied in X hours → email admin)
-2. HubSpot webhook sync (conversation resolved → HubSpot update)
-3. Custom immigration case timeline
-
-For each, tell me:
-- Which existing files are most relevant
-- What new files you'd create
-- Any risks or conflicts with existing code
+### ✅ SAFE TO ADD/MODIFY FREELY:
+```
+app/controllers/api/v2/       → New API endpoints (use v2 namespace)
+app/jobs/                     → New background jobs
+app/mailers/                  → New email templates
+app/views/mailers/            → Email HTML templates
+app/javascript/views/         → New pages/views
+app/javascript/components/    → New UI components
+config/locales/               → Translation strings
+lib/tasks/                    → Custom rake tasks
+db/migrate/ (NEW files only)  → New migrations
+```
 
 ---
 
-**Important rules for you:**
-- This is open-source (MIT) — you CAN read all files freely
-- When you encounter something unclear → search https://github.com/chatwoot/chatwoot/issues first
-- When you need Chatwoot API docs → check https://developers.chatwoot.com
-- When you need Rails docs → check https://api.rubyonrails.org
-- NEVER modify `db/schema.rb` directly
-- NEVER edit existing migration files
-- NEVER touch the `enterprise/` directory
-- If you are about to change a core model (conversation, message, user, account) → STOP and ask me first
-- All HOF-specific code goes in `HOF::` namespace
-- Commit all HOF changes on branch `hof-main` only
+## HOF-SPECIFIC CUSTOMIZATIONS — CONTEXT FOR AI
 
-Start with Step 1 now. Read the files and report back what you found.
+We are building these features ON TOP of Chatwoot:
+
+### 1. SLA / Response Time Alerts (PRIORITY)
+- If an agent has not replied to a conversation in X hours → send email to admin
+- Location to build: `app/jobs/hof_sla_check_job.rb` (new file)
+- Trigger: Sidekiq scheduled job every 30 minutes
+- Do NOT modify existing notification system — add alongside it
+
+### 2. HubSpot Sync (PLANNED)
+- When conversation is resolved → update HubSpot deal stage
+- New webhook handler: `app/controllers/api/v2/hof/hubspot_controller.rb`
+- Reference: HOF uses HubSpot Sales Pro
+
+### 3. Immigration Case Timeline (PLANNED)
+- Custom attributes on conversations: visa_type, case_stage, assigned_date
+- Use Chatwoot's existing custom_attributes system — do not create new tables
+
+### 4. Compliance Reports (PLANNED)
+- Admin-only dashboard showing agent response metrics
+- Use existing Chatwoot reports infrastructure
+
+---
+
+## WHEN TO CHECK ONLINE DOCUMENTATION
+
+Before implementing anything related to:
+- **WhatsApp API** → https://developers.facebook.com/docs/whatsapp
+- **Chatwoot APIs** → https://www.chatwoot.com/developers/api
+- **Chatwoot self-hosted config** → https://developers.chatwoot.com/self-hosted
+- **Rails specifics** → https://api.rubyonrails.org
+- **Sidekiq jobs** → https://github.com/sidekiq/sidekiq/wiki
+- **Vue 3** → https://vuejs.org/guide
+- **ActionCable (WebSockets)** → https://guides.rubyonrails.org/action_cable_overview.html
+- **Chatwoot GitHub Issues** → https://github.com/chatwoot/chatwoot/issues (search before building)
+
+---
+
+## AI AGENT BEHAVIOR RULES
+
+1. **Read before write** — Always read the relevant existing file completely before modifying it
+2. **Migrations are permanent** — Never edit an existing migration file. Always create a new one
+3. **Test your routes** — After adding routes, verify with `rails routes | grep your_route`
+4. **Check if it exists** — Before building a feature, search the codebase. Chatwoot may already have it
+5. **Namespace HOF code** — All HOF-specific code should be in `HOF::` module namespace or prefixed with `hof_`
+6. **No monkey patching** — Do not reopen core Rails or Chatwoot classes. Use concerns/modules
+7. **Ask before DB changes** — Any new migration that modifies existing tables → ask user first
+8. **Keep upstream clean** — Commit HOF changes on a separate branch `hof-main`, never on `develop`
+9. **One thing at a time** — Do not make multiple unrelated changes in one go
+10. **If unsure → ask** — Better to ask than to break something in production
+
+---
+
+## BRANCH STRATEGY
+```
+develop          → Upstream Chatwoot (pull updates here)
+hof-main         → HOF production branch (our customizations)
+hof-feature/xxx  → Individual feature branches
+```
+
+When Chatwoot releases an update:
+1. Pull into `develop`
+2. Merge `develop` into `hof-main`
+3. Resolve conflicts (should be minimal if rules followed)
+
+---
+
+## DEPLOYMENT (Railway)
+- Production URL: https://inbox.hofmigration.com
+- Platform: Railway.app
+- Services: Chatwoot web + Sidekiq + PostgreSQL + Valkey (Redis)
+- Deploy: Push to `hof-main` → Railway auto-deploys
+- Env vars: Managed in Railway dashboard (never commit .env to git)
+
+---
+
+## CONTACT / ESCALATION
+If something is unclear or risky — stop and ask the user (Arslan) before proceeding.
+Do not make assumptions on production-affecting changes.

@@ -67,6 +67,9 @@ export default {
       currentUser: 'getCurrentUser',
       teams: 'teams/getTeams',
     }),
+    isAgent() {
+      return this.currentUser?.role === 'agent';
+    },
     hasAnAssignedTeam() {
       return !!this.currentChat?.meta?.team;
     },
@@ -213,7 +216,7 @@ export default {
 
 <template>
   <div>
-    <div>
+    <div v-if="!isAgent">
       <ContactDetailsItem
         compact
         :title="$t('CONVERSATION_SIDEBAR.ASSIGNEE_LABEL')"
