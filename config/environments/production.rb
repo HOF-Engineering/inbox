@@ -42,6 +42,10 @@ Rails.application.configure do
   # Store uploaded files on the local file system (see config/storage.yml for options)
   config.active_storage.service = ENV.fetch('ACTIVE_STORAGE_SERVICE', 'local').to_sym
 
+  # Serve attachments through the Rails storage proxy instead of direct presigned
+  # storage URLs. Helps in-dashboard file viewing for R2/S3 backends.
+  config.active_storage.resolve_model_to_route = :rails_storage_proxy
+
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
   config.force_ssl = ActiveModel::Type::Boolean.new.cast(ENV.fetch('FORCE_SSL', false))
 

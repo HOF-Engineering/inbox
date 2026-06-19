@@ -1,3 +1,5 @@
+require 'faraday/multipart'
+
 class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseService
   def send_message(phone_number, message)
     @message = message
@@ -117,8 +119,11 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
   def send_attachment_message(phone_number, message)
     attachment = message.attachments.first
     normalize_opus_content_type(attachment)
+    media_id = upload_whatsapp_media(attachment, message)
+    return nil if media_id.blank?
+
     type = %w[image audio video].include?(attachment.file_type) ? attachment.file_type : 'document'
-    type_content = build_attachment_content(type, attachment, message)
+    type_content = build_attachment_content(type, attachment, message, media_id)
     response = HTTParty.post(
       "#{phone_id_path('v24.0')}/messages",
       headers: api_headers,
@@ -158,12 +163,75 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
     Rails.logger.error("Failed to normalize blob #{blob.id} content_type from audio/opus to audio/ogg")
   end
 
-  def build_attachment_content(type, attachment, message)
-    type_content = { 'link' => attachment.download_url }
+  def build_attachment_content(type, attachment, message, media_id)
+    type_content = { 'id' => media_id }
     type_content['caption'] = message.outgoing_content unless %w[audio sticker].include?(type)
     type_content['filename'] = attachment.file.filename if type == 'document'
     type_content['voice'] = true if voice_message?(type, attachment)
     type_content
+  end
+
+  # Uploads the attachment bytes directly to the WhatsApp Cloud media endpoint and
+  # returns the resulting media_id. Sending by media_id avoids Meta having to fetch
+  # our storage URLs (R2/S3 presigned links it cannot access -> error 131053).
+  def upload_whatsapp_media(attachment, message)
+    return nil unless attachment.file.attached?
+
+    blob = attachment.file.blob
+    content_type = blob.content_type.presence || 'application/octet-stream'
+    filename = attachment.file.filename.to_s
+
+    response = blob.open do |tempfile|
+      whatsapp_media_connection.post("#{phone_id_path('v24.0')}/media") do |req|
+        req.headers['Authorization'] = "Bearer #{whatsapp_channel.provider_config['api_key']}"
+        req.body = {
+          messaging_product: 'whatsapp',
+          type: content_type,
+          file: Faraday::Multipart::FilePart.new(tempfile, content_type, filename)
+        }
+      end
+    end
+
+    media_id = parse_media_upload_response(response)
+    return media_id if media_id.present?
+
+    handle_media_upload_error(response, message)
+    nil
+  end
+
+  def whatsapp_media_connection
+    Faraday.new do |conn|
+      conn.request :multipart
+      conn.adapter Faraday.default_adapter
+    end
+  end
+
+  def parse_media_upload_response(response)
+    return nil unless response.success?
+
+    parse_media_response_body(response)['id']
+  end
+
+  def parse_media_response_body(response)
+    body = response&.body
+    return body if body.is_a?(Hash)
+
+    JSON.parse(body.to_s)
+  rescue JSON::ParserError
+    {}
+  end
+
+  # Mirrors BaseService#handle_error: log the failure, then set external_error /
+  # status and persist the message. We parse a plain hash from the Faraday response
+  # body (no HTTParty object here) to extract Meta's error message.
+  def handle_media_upload_error(response, message)
+    Rails.logger.error("WhatsApp media upload failed: #{response&.body}")
+    return if message.blank?
+
+    error_message = parse_media_response_body(response).dig('error', 'message')
+    message.external_error = error_message.presence || 'WhatsApp media upload failed'
+    message.status = :failed
+    message.save!
   end
 
   def template_body_parameters(template_info)
