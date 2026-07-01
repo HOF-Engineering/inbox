@@ -4,6 +4,27 @@
 class Whatsapp::IncomingMessageWhatsappCloudService < Whatsapp::IncomingMessageBaseService
   private
 
+  def set_conversation
+    super
+    enqueue_lead_welcome_form
+  end
+
+  def enqueue_lead_welcome_form
+    return unless should_enqueue_lead_welcome_form?
+
+    LeadWelcomeFormJob.set(wait: 5.seconds).perform_later(@conversation.id)
+  end
+
+  def should_enqueue_lead_welcome_form?
+    return false if outgoing_echo
+    return false unless @conversation&.previously_new_record?
+    return false unless LeadWelcomeFormJob.feature_enabled?
+    return false unless @inbox.id == ENV['WELCOME_FORM_INBOX_ID'].to_i
+    return false unless @contact_inbox.conversations.one?
+
+    true
+  end
+
   def create_regular_message(message)
     super
     return unless nfm_reply?(message)
