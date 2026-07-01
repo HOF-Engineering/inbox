@@ -25,12 +25,52 @@ module Whatsapp::IncomingMessageServiceHelpers
   end
 
   def message_content(message)
+    if nfm_reply?(message)
+      nfm = message.dig(:interactive, :nfm_reply)
+      return format_nfm_reply_content(parse_nfm_reply_json(message), nfm[:body])
+    end
+
     # TODO: map interactive messages back to button messages in chatwoot
     message.dig(:text, :body) ||
       message.dig(:button, :text) ||
       message.dig(:interactive, :button_reply, :title) ||
       message.dig(:interactive, :list_reply, :title) ||
       message.dig(:name, :formatted_name)
+  end
+
+  def nfm_reply?(message)
+    message.dig(:interactive, :type) == 'nfm_reply'
+  end
+
+  def parse_nfm_reply_json(message)
+    json = message.dig(:interactive, :nfm_reply, :response_json)
+    return {} if json.blank?
+
+    JSON.parse(json).stringify_keys
+  rescue JSON::ParserError => e
+    Rails.logger.warn("[Whatsapp] Failed to parse nfm_reply response_json: #{e.message}")
+    {}
+  end
+
+  NFM_REPLY_FIELD_LABELS = {
+    'full_name' => 'Name',
+    'email' => 'Email',
+    'country' => 'Country',
+    'interested_in' => 'Interested in',
+    'occupation' => 'Occupation'
+  }.freeze
+
+  def format_nfm_reply_content(form_data, fallback_body = nil)
+    return fallback_body.presence || '✅ Lead form submitted' if form_data.blank?
+
+    lines = ['✅ Lead form submitted']
+    form_data.each do |key, value|
+      next if value.blank?
+
+      label = NFM_REPLY_FIELD_LABELS[key] || key.to_s.split('_').map(&:capitalize).join(' ')
+      lines << "#{label}: #{value}"
+    end
+    lines.join("\n")
   end
 
   def file_content_type(file_type)

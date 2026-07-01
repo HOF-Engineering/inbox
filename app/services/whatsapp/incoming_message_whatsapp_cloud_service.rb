@@ -4,6 +4,49 @@
 class Whatsapp::IncomingMessageWhatsappCloudService < Whatsapp::IncomingMessageBaseService
   private
 
+  def create_regular_message(message)
+    super
+    return unless nfm_reply?(message)
+
+    form_data = parse_nfm_reply_json(message)
+    return if form_data.blank?
+
+    update_contact_from_nfm_reply(form_data)
+    enqueue_lead_sheet_forward(form_data)
+  end
+
+  def message_content_attributes(message)
+    super.tap do |content_attrs|
+      next unless nfm_reply?(message)
+
+      form_data = parse_nfm_reply_json(message)
+      content_attrs[:submitted_form] = form_data if form_data.present?
+    end
+  end
+
+  def update_contact_from_nfm_reply(form_data)
+    attrs = form_data.slice('email', 'country', 'interested_in', 'occupation').compact_blank
+    @contact.custom_attributes = (@contact.custom_attributes || {}).merge(attrs)
+    @contact.name = form_data['full_name'] if @contact.name.blank? && form_data['full_name'].present?
+    @contact.email = form_data['email'] if @contact.email.blank? && form_data['email'].present?
+    @contact.save!
+  rescue StandardError => e
+    Rails.logger.error("[Whatsapp] Failed to update contact from nfm_reply: #{e.message}")
+  end
+
+  def enqueue_lead_sheet_forward(form_data)
+    return if ENV['LEAD_SHEET_WEBHOOK_URL'].blank?
+
+    LeadSheetForwardJob.perform_later(
+      full_name: form_data['full_name'],
+      phone: @contact.phone_number,
+      email: form_data['email'],
+      country: form_data['country'],
+      interested_in: form_data['interested_in'],
+      occupation: form_data['occupation']
+    )
+  end
+
   def processed_params
     @processed_params ||= params[:entry].try(:first).try(:[], 'changes').try(:first).try(:[], 'value')
   end
