@@ -7,6 +7,7 @@ class Whatsapp::IncomingMessageWhatsappCloudService < Whatsapp::IncomingMessageB
   def set_conversation
     super
     enqueue_lead_welcome_form
+    enqueue_pack_welcome_form
   end
 
   def enqueue_lead_welcome_form
@@ -25,6 +26,22 @@ class Whatsapp::IncomingMessageWhatsappCloudService < Whatsapp::IncomingMessageB
     true
   end
 
+  def enqueue_pack_welcome_form
+    return unless should_enqueue_pack_welcome_form?
+
+    PackWelcomeFormJob.set(wait: 5.seconds).perform_later(@conversation.id)
+  end
+
+  def should_enqueue_pack_welcome_form?
+    return false if outgoing_echo
+    return false unless @conversation&.previously_new_record?
+    return false unless PackWelcomeFormJob.feature_enabled?
+    return false unless @inbox.id == ENV['PACK_FORM_INBOX_ID'].to_i
+    return false unless @contact_inbox.conversations.one?
+
+    true
+  end
+
   def create_regular_message(message)
     super
     return unless nfm_reply?(message)
@@ -33,7 +50,16 @@ class Whatsapp::IncomingMessageWhatsappCloudService < Whatsapp::IncomingMessageB
     return if form_data.blank?
 
     update_contact_from_nfm_reply(form_data)
-    enqueue_lead_sheet_forward(form_data)
+
+    if pack_inbox?
+      enqueue_pack_sheet_forward(form_data)
+    else
+      enqueue_lead_sheet_forward(form_data)
+    end
+  end
+
+  def pack_inbox?
+    ENV['PACK_FORM_INBOX_ID'].present? && @inbox.id == ENV['PACK_FORM_INBOX_ID'].to_i
   end
 
   def message_content_attributes(message)
@@ -66,6 +92,17 @@ class Whatsapp::IncomingMessageWhatsappCloudService < Whatsapp::IncomingMessageB
       interested_in: form_data['interested_in'],
       occupation: form_data['occupation']
     )
+  end
+
+  def enqueue_pack_sheet_forward(form_data)
+    url = ENV['PACK_LEAD_SHEET_WEBHOOK_URL']
+    return if url.blank?
+
+    payload = {
+      'full_name' => form_data['full_name'].presence || @contact.name,
+      'phone' => @contact.phone_number
+    }.merge(form_data)
+    LeadSheetForwardJob.perform_later(payload, url)
   end
 
   def processed_params

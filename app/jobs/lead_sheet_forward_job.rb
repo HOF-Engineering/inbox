@@ -1,8 +1,8 @@
 class LeadSheetForwardJob < ApplicationJob
   queue_as :medium
 
-  def perform(payload)
-    url = ENV['LEAD_SHEET_WEBHOOK_URL']
+  def perform(payload, url = nil)
+    url ||= ENV['LEAD_SHEET_WEBHOOK_URL']
     return if url.blank?
 
     HTTParty.post(
