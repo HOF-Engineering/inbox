@@ -35,6 +35,11 @@ const props = defineProps({
       return true;
     },
   },
+  // Optional: pre-fill the first body variable ({{1}}) — e.g. the contact's first name.
+  prefillName: {
+    type: String,
+    default: '',
+  },
 });
 
 const emit = defineEmits(['sendMessage', 'resetTemplate', 'back']);
@@ -118,11 +123,22 @@ const v$ = useVuelidate(
   { processedParams }
 );
 
+const applyPrefill = () => {
+  if (!props.prefillName) return;
+  const body = processedParams.value?.body;
+  if (!body) return;
+  // Pre-fill only the FIRST body variable ({{1}}) and only when still empty,
+  // so the agent can always overwrite it.
+  const firstKey = Object.keys(body)[0];
+  if (firstKey && !body[firstKey]) body[firstKey] = props.prefillName;
+};
+
 const initializeTemplateParameters = () => {
   processedParams.value = buildTemplateParameters(
     props.template,
     hasMediaHeader.value
   );
+  applyPrefill();
 };
 
 const updateMediaUrl = value => {

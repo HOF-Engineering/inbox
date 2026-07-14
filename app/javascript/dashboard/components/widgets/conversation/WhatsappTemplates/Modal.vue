@@ -38,6 +38,12 @@ export default {
           })
         : this.$t('WHATSAPP_TEMPLATES.MODAL.SUBTITLE');
     },
+    // First name of the current conversation's contact — used to pre-fill {{1}}.
+    prefillName() {
+      const chat = this.$store.getters.getSelectedChat;
+      const name = chat?.meta?.sender?.name || '';
+      return name.trim().split(/\s+/)[0] || '';
+    },
   },
   methods: {
     pickTemplate(template) {
@@ -71,6 +77,7 @@ export default {
       <WhatsAppTemplateReply
         v-else
         :template="selectedWaTemplate"
+        :prefill-name="prefillName"
         @reset-template="onResetTemplate"
         @send-message="onSendMessage"
       />

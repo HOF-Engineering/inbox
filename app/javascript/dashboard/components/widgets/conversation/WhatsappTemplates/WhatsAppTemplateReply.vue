@@ -7,6 +7,10 @@ defineProps({
     type: Object,
     default: () => ({}),
   },
+  prefillName: {
+    type: String,
+    default: '',
+  },
 });
 
 const emit = defineEmits(['sendMessage', 'resetTemplate']);
@@ -24,6 +28,7 @@ const handleResetTemplate = () => {
   <div class="w-full">
     <WhatsAppTemplateParser
       :template="template"
+      :prefill-name="prefillName"
       @send-message="handleSendMessage"
       @reset-template="handleResetTemplate"
     >
