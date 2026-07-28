@@ -4,7 +4,7 @@ RSpec.describe Api::V1::Accounts::ConferenceController, type: :request do
   let(:account) { create(:account) }
   let(:voice_channel) { create(:channel_twilio_sms, :with_voice, account: account) }
   let(:voice_inbox) { voice_channel.inbox }
-  let(:conversation) { create(:conversation, account: account, inbox: voice_inbox) }
+  let(:conversation) { create(:conversation, account: account, inbox: voice_inbox, assignee: agent) }
   let(:admin) { create(:user, :administrator, account: account) }
   let(:agent) { create(:user, account: account, role: :agent) }
 

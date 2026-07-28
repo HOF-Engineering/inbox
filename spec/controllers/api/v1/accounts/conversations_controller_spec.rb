@@ -337,7 +337,7 @@ RSpec.describe 'Conversations API', type: :request do
             headers: agent.create_new_auth_token,
             as: :json
 
-        expect(response).to have_http_status(:unauthorized)
+        expect(response).to have_http_status(:not_found)
       end
 
       it 'shows the conversation if you are an administrator' do
@@ -386,7 +386,7 @@ RSpec.describe 'Conversations API', type: :request do
               headers: agent.create_new_auth_token,
               as: :json
 
-        expect(response).to have_http_status(:unauthorized)
+        expect(response).to have_http_status(:not_found)
       end
 
       it 'updates the conversation if you are an administrator' do
@@ -1183,7 +1183,7 @@ RSpec.describe 'Conversations API', type: :request do
             headers: agent.create_new_auth_token,
             as: :json
 
-        expect(response).to have_http_status(:unauthorized)
+        expect(response).to have_http_status(:not_found)
       end
 
       it 'return the attachments if you are an administrator' do

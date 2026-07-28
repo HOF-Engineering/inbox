@@ -60,18 +60,18 @@ RSpec.describe SlaEvent, type: :model do
       create(:conversation_participant, conversation: conversation, user: participant)
     end
 
-    it 'creates notifications for conversation participants, admins, and assignee' do
+    it 'creates notifications for the assignee and admins, but not participant-only agents' do
       sla_event
 
-      expect(Notification.count).to eq(3)
+      expect(Notification.count).to eq(2)
       # check if notification type is sla_missed_first_response
-      expect(Notification.where(notification_type: 'sla_missed_first_response').count).to eq(3)
+      expect(Notification.where(notification_type: 'sla_missed_first_response').count).to eq(2)
       # Check if notification is created for the assignee
       expect(Notification.where(user_id: assignee.id).count).to eq(1)
       # Check if notification is created for the account admin
       expect(Notification.where(user_id: admin.id).count).to eq(1)
-      # Check if notification is created for participant
-      expect(Notification.where(user_id: participant.id).count).to eq(1)
+      # Participation alone no longer grants conversation access, so no notification is created
+      expect(Notification.where(user_id: participant.id).count).to eq(0)
     end
   end
 end

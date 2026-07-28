@@ -2,13 +2,41 @@ require 'rails_helper'
 
 RSpec.describe NotificationFinder do
   let!(:account) { create(:account) }
-  let!(:user) { create(:user, account: account) }
+  # An administrator, so these examples cover the snoozed/read/sort/count behaviour rather
+  # than the conversation access boundary, which has its own context below.
+  let!(:user) { create(:user, account: account, role: :administrator) }
   let(:notification_finder) { described_class.new(user, account, params) }
 
   before do
     create(:notification, :snoozed, account: account, user: user)
     create_list(:notification, 2, :read, account: account, user: user)
     create_list(:notification, 3, account: account, user: user)
+  end
+
+  describe 'conversation access boundary' do
+    let(:params) { {} }
+    let(:inbox) { create(:inbox, account: account) }
+    let(:agent) { create(:user, account: account, role: :agent) }
+    let(:other_agent) { create(:user, account: account, role: :agent) }
+
+    before do
+      create(:inbox_member, user: agent, inbox: inbox)
+      create(:inbox_member, user: other_agent, inbox: inbox)
+    end
+
+    it 'excludes notifications for conversations the agent is not assigned to' do
+      own = create(:notification, account: account, user: agent, primary_actor: create(:conversation, account: account, inbox: inbox,
+                                                                                                      assignee: agent))
+      create(:notification, account: account, user: agent, primary_actor: create(:conversation, account: account, inbox: inbox,
+                                                                                                assignee: other_agent))
+      create(:notification, account: account, user: agent, primary_actor: create(:conversation, account: account, inbox: inbox, assignee: nil))
+
+      finder = described_class.new(agent, account, params)
+
+      expect(finder.notifications).to contain_exactly(own)
+      expect(finder.unread_count).to eq(1)
+      expect(finder.count).to eq(1)
+    end
   end
 
   describe '#notifications' do

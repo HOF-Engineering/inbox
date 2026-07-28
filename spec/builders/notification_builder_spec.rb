@@ -11,6 +11,8 @@ describe NotificationBuilder do
 
     before do
       create(:inbox_member, user: user, inbox: inbox)
+      # notifications respect conversation access, which is assigned-only for agents
+      primary_actor.update!(assignee: user)
       notification_setting = user.notification_settings.find_by(account_id: account.id)
       notification_setting.selected_email_flags = [:email_conversation_creation]
       notification_setting.selected_push_flags = [:push_conversation_creation]

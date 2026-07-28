@@ -2,6 +2,7 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
   include Events::Types
   include DateRangeHelper
   include HmacConcern
+  include ConversationScopeHelper
 
   before_action :conversation, except: [:index, :meta, :search, :create, :filter]
   before_action :inbox, :contact, :contact_inbox, only: [:create]
@@ -188,7 +189,7 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
   end
 
   def conversation
-    @conversation ||= Current.account.conversations.find_by!(display_id: params[:id])
+    @conversation ||= permitted_conversations.find_by!(display_id: params[:id])
     authorize @conversation, :show?
   end
 

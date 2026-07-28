@@ -30,10 +30,18 @@ describe NotificationBuilder do
         account_user.update!(custom_role: custom_role)
       end
 
-      it 'creates a notification for any inbox conversation' do
-        conversation = create(:conversation, account: account, inbox: inbox)
+      it 'creates a notification for conversations assigned to the agent' do
+        conversation = create(:conversation, account: account, inbox: inbox, assignee: agent)
 
         expect { build_notification(conversation) }.to change { agent.notifications.count }.by(1)
+      end
+
+      it 'does not create a notification for conversations assigned to someone else' do
+        other_agent = create(:user, account: account, role: :agent)
+        create(:inbox_member, user: other_agent, inbox: inbox)
+        conversation = create(:conversation, account: account, inbox: inbox, assignee: other_agent)
+
+        expect { build_notification(conversation) }.not_to(change { agent.notifications.count })
       end
     end
 
@@ -43,10 +51,10 @@ describe NotificationBuilder do
         account_user.update!(custom_role: custom_role)
       end
 
-      it 'creates a notification for unassigned conversations' do
+      it 'does not create a notification for unassigned conversations' do
         conversation = create(:conversation, account: account, inbox: inbox, assignee: nil)
 
-        expect { build_notification(conversation) }.to change { agent.notifications.count }.by(1)
+        expect { build_notification(conversation) }.not_to(change { agent.notifications.count })
       end
 
       it 'creates a notification for conversations assigned to the agent' do
@@ -76,11 +84,11 @@ describe NotificationBuilder do
         expect { build_notification(conversation) }.to change { agent.notifications.count }.by(1)
       end
 
-      it 'creates a notification for conversations the agent participates in' do
+      it 'does not create a notification for conversations the agent only participates in' do
         conversation = create(:conversation, account: account, inbox: inbox, assignee: nil)
         create(:conversation_participant, conversation: conversation, account: account, user: agent)
 
-        expect { build_notification(conversation) }.to change { agent.notifications.count }.by(1)
+        expect { build_notification(conversation) }.not_to(change { agent.notifications.count })
       end
 
       it 'does not create a notification for unassigned conversations the agent does not participate in' do

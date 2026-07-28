@@ -8,7 +8,7 @@ RSpec.describe 'WhatsApp Calls API', type: :request do
                               validate_provider_config: false, sync_templates: false)
   end
   let(:inbox) { channel.inbox }
-  let(:conversation) { create(:conversation, account: account, inbox: inbox) }
+  let(:conversation) { create(:conversation, account: account, inbox: inbox, assignee: agent) }
   let(:call) do
     create(:call, account: account, inbox: inbox, conversation: conversation, contact: conversation.contact,
                   provider: :whatsapp, direction: :incoming, status: 'ringing', provider_call_id: 'wacid_abc')
@@ -89,7 +89,7 @@ RSpec.describe 'WhatsApp Calls API', type: :request do
     let(:contact) { create(:contact, account: account, phone_number: '+15551234567') }
     let!(:contact_inbox) { create(:contact_inbox, contact: contact, inbox: inbox, source_id: '15551234567') }
     let(:initiate_conversation) do
-      create(:conversation, account: account, inbox: inbox, contact: contact, contact_inbox: contact_inbox)
+      create(:conversation, account: account, inbox: inbox, contact: contact, contact_inbox: contact_inbox, assignee: agent)
     end
 
     it 'creates an outbound Call and returns calling status' do
@@ -165,7 +165,7 @@ RSpec.describe 'WhatsApp Calls API', type: :request do
     it 'returns 422 when the conversation belongs to a non-WhatsApp inbox' do
       twilio_channel = create(:channel_twilio_sms, :with_voice, account: account, phone_number: '+15551239998')
       create(:inbox_member, user: agent, inbox: twilio_channel.inbox)
-      twilio_conversation = create(:conversation, account: account, inbox: twilio_channel.inbox)
+      twilio_conversation = create(:conversation, account: account, inbox: twilio_channel.inbox, assignee: agent)
 
       post "/api/v1/accounts/#{account.id}/whatsapp_calls/initiate",
            params: { conversation_id: twilio_conversation.display_id, sdp_offer: 'sdp_offer' },

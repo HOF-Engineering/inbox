@@ -32,12 +32,28 @@ class NotificationFinder
 
   def set_up
     find_all_notifications
+    filter_by_conversation_access
     filter_snoozed_notifications
     filter_read_notifications
   end
 
   def find_all_notifications
     @notifications = current_user.notifications.where(account_id: @current_account.id)
+  end
+
+  # SECURITY-CRITICAL: every notification points at a conversation (Notification::PRIMARY_ACTORS),
+  # so notifications for conversations the user can no longer open must not surface at all.
+  # This covers the list, the counts and the unread badge, and it also hides notifications that
+  # became stale because the conversation was reassigned after the notification was created.
+  def filter_by_conversation_access
+    @notifications = @notifications.where(
+      primary_actor_type: 'Conversation',
+      primary_actor_id: accessible_conversations.select(:id)
+    )
+  end
+
+  def accessible_conversations
+    ::Conversations::PermissionFilterService.new(@current_account.conversations, current_user, @current_account).perform
   end
 
   def filter_snoozed_notifications

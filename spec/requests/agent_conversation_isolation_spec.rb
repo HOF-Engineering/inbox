@@ -128,16 +128,19 @@ RSpec.describe 'Agent conversation isolation', type: :request do
   end
 
   describe 'single conversation reads' do
-    it 'denies showing another agents conversation' do
+    # 404 rather than 401 on purpose: the mobile app signs the agent out on a 401, and a
+    # 404 does not confirm that the conversation exists.
+    it 'denies showing another agents conversation without signing the agent out' do
       get "/api/v1/accounts/#{account.id}/conversations/#{conv_b.display_id}", headers: agent_a_headers, as: :json
 
-      expect(response).to have_http_status(:unauthorized)
+      expect(response).to have_http_status(:not_found)
+      expect(response).not_to have_http_status(:unauthorized)
     end
 
     it 'denies showing an unassigned conversation' do
       get "/api/v1/accounts/#{account.id}/conversations/#{conv_unassigned.display_id}", headers: agent_a_headers, as: :json
 
-      expect(response).to have_http_status(:unauthorized)
+      expect(response).to have_http_status(:not_found)
     end
 
     it 'allows showing its own conversation' do
@@ -149,14 +152,67 @@ RSpec.describe 'Agent conversation isolation', type: :request do
     it 'denies reading messages of another agents conversation' do
       get "/api/v1/accounts/#{account.id}/conversations/#{conv_b.display_id}/messages", headers: agent_a_headers, as: :json
 
-      expect(response).to have_http_status(:unauthorized)
+      expect(response).to have_http_status(:not_found)
       expect(response.body).not_to include('needle bravo')
     end
 
     it 'denies reading attachments of another agents conversation' do
       get "/api/v1/accounts/#{account.id}/conversations/#{conv_b.display_id}/attachments", headers: agent_a_headers, as: :json
 
-      expect(response).to have_http_status(:unauthorized)
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  # This is the "My Inbox" notification list. Notifications outlive an assignee change, so
+  # they have to be filtered at read time, not just gated when they are created.
+  describe 'notification list' do
+    def notify(user, conversation)
+      create(:notification, account: account, user: user, primary_actor: conversation, notification_type: 'conversation_creation')
+    end
+
+    def listed_notification_ids
+      response.parsed_body['data']['payload'].pluck('id')
+    end
+
+    it 'only lists notifications for conversations the agent can open' do
+      own = notify(agent_a, conv_a)
+      other_agents = notify(agent_a, conv_b)
+      unassigned = notify(agent_a, conv_unassigned)
+
+      get "/api/v1/accounts/#{account.id}/notifications", headers: agent_a_headers, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(listed_notification_ids).to contain_exactly(own.id)
+      expect(listed_notification_ids).not_to include(other_agents.id, unassigned.id)
+    end
+
+    it 'excludes them from the unread count badge' do
+      notify(agent_a, conv_a)
+      notify(agent_a, conv_b)
+      notify(agent_a, conv_unassigned)
+
+      get "/api/v1/accounts/#{account.id}/notifications/unread_count", headers: agent_a_headers, as: :json
+
+      expect(response.parsed_body).to eq(1)
+    end
+
+    it 'hides a notification once the conversation is reassigned away from the agent' do
+      notify(agent_a, conv_a)
+      conv_a.update!(assignee: agent_b)
+
+      get "/api/v1/accounts/#{account.id}/notifications", headers: agent_a_headers, as: :json
+
+      expect(listed_notification_ids).to be_empty
+    end
+
+    it 'still lists everything for an administrator' do
+      notify(administrator, conv_a)
+      notify(administrator, conv_b)
+      notify(administrator, conv_unassigned)
+
+      get "/api/v1/accounts/#{account.id}/notifications", headers: admin_headers, as: :json
+
+      expect(listed_notification_ids.length).to eq(3)
     end
   end
 
@@ -180,7 +236,7 @@ RSpec.describe 'Agent conversation isolation', type: :request do
       requests.each do |verb, path, payload|
         public_send(verb, "/api/v1/accounts/#{account.id}/#{path}", headers: agent_a_headers, params: payload, as: :json)
 
-        expect(response).to have_http_status(:unauthorized), "expected #{verb.upcase} #{path} to be denied, got #{response.status}"
+        expect(response).to have_http_status(:not_found), "expected #{verb.upcase} #{path} to be denied, got #{response.status}"
       end
 
       conv_b.reload
