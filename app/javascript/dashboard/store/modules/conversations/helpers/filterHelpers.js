@@ -81,6 +81,9 @@ const getValueFromConversation = (conversation, attributeKey) => {
       );
     case 'inbox_id':
       return conversation.inbox_id;
+    case 'unread':
+      // Compared as a string so it matches the 'true'/'false' option ids sent to the backend.
+      return (conversation.unread_count || 0) > 0 ? 'true' : 'false';
     case 'team_id':
       return conversation.meta?.team?.id;
     case 'browser_language':

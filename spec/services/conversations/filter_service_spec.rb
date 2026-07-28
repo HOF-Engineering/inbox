@@ -643,6 +643,74 @@ describe Conversations::FilterService do
     end
   end
 
+  describe 'unread filter' do
+    let!(:unread_inbox) { create(:inbox, account: account, enable_auto_assignment: false) }
+    let!(:admin) { create(:user, account: account, role: :administrator) }
+    let!(:unread_conversation) do
+      create(:conversation, account: account, inbox: unread_inbox, assignee: user_1, agent_last_seen_at: 2.hours.ago)
+    end
+    let!(:read_conversation) do
+      create(:conversation, account: account, inbox: unread_inbox, assignee: user_1, agent_last_seen_at: Time.current)
+    end
+    let!(:other_unread_conversation) do
+      create(:conversation, account: account, inbox: unread_inbox, assignee: user_2, agent_last_seen_at: 2.hours.ago)
+    end
+
+    before do
+      [unread_conversation, read_conversation, other_unread_conversation].each do |conversation|
+        create(:message, account: account, inbox: unread_inbox, conversation: conversation,
+                         message_type: :incoming, created_at: 1.hour.ago)
+      end
+    end
+
+    def unread_payload(values, operator: 'equal_to', extra: [])
+      condition = {
+        attribute_key: 'unread', filter_operator: operator, values: values,
+        query_operator: extra.any? ? 'AND' : nil, custom_attribute_type: ''
+      }.with_indifferent_access
+
+      { payload: [condition] + extra, page: 1 }
+    end
+
+    def filtered_ids(params, actor = admin)
+      filter_service.new(params, actor, account).perform[:conversations].map(&:id)
+    end
+
+    it 'returns only conversations with unread incoming messages' do
+      expect(filtered_ids(unread_payload(['true']))).to contain_exactly(unread_conversation.id, other_unread_conversation.id)
+    end
+
+    # Other conversations in this spec have no incoming messages, so they count as read too.
+    it 'returns conversations without unread incoming messages' do
+      ids = filtered_ids(unread_payload(['false']))
+
+      expect(ids).to include(read_conversation.id)
+      expect(ids).not_to include(unread_conversation.id, other_unread_conversation.id)
+    end
+
+    it 'inverts the match for not_equal_to' do
+      ids = filtered_ids(unread_payload(['true'], operator: 'not_equal_to'))
+
+      expect(ids).to include(read_conversation.id)
+      expect(ids).not_to include(unread_conversation.id, other_unread_conversation.id)
+    end
+
+    it 'combines with an assignee condition' do
+      assignee_condition = {
+        attribute_key: 'assignee_id', filter_operator: 'equal_to', values: [user_1.id],
+        query_operator: nil, custom_attribute_type: ''
+      }.with_indifferent_access
+
+      expect(filtered_ids(unread_payload(['true'], extra: [assignee_condition]))).to contain_exactly(unread_conversation.id)
+    end
+
+    it 'still respects the assigned-only boundary for agents' do
+      create(:inbox_member, user: user_2, inbox: unread_inbox)
+
+      expect(filtered_ids(unread_payload(['true']), user_2)).to contain_exactly(other_unread_conversation.id)
+    end
+  end
+
   describe '#base_relation' do
     let!(:account) { create(:account) }
     let!(:user_1) { create(:user, account: account, role: :agent) }

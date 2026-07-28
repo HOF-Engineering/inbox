@@ -6,6 +6,7 @@ class FilterService
   include CustomExceptions::CustomFilter
 
   ATTRIBUTE_MODEL = 'conversation_attribute'.freeze
+  TRUTHY_FILTER_VALUES = %w[true yes 1 unread].freeze
   ATTRIBUTE_TYPES = {
     date: 'date', text: 'text', number: 'numeric', link: 'text', list: 'text', checkbox: 'boolean'
   }.with_indifferent_access
@@ -113,6 +114,20 @@ class FilterService
       @conversations.unassigned.count,
       @conversations.count
     ]
+  end
+
+  # `unread` is not a column. A conversation is unread when it has incoming messages newer than
+  # `agent_last_seen_at`, so this reuses the exact condition behind the unread badge and
+  # Conversation.sort_on_unread - the filter and the badge can never disagree.
+  def unread_filter_query(query_hash)
+    operator = wants_unread?(query_hash) ? '>' : '='
+
+    "#{Conversation.unread_messages_count_arel.to_sql} #{operator} 0 #{query_hash[:query_operator]}"
+  end
+
+  def wants_unread?(query_hash)
+    unread = TRUTHY_FILTER_VALUES.include?(Array(query_hash['values']).first.to_s.downcase)
+    query_hash[:filter_operator] == 'not_equal_to' ? !unread : unread
   end
 
   def tag_filter_query(query_hash, current_index)

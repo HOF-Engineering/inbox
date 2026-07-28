@@ -56,6 +56,13 @@ conversations:
     filter_operators:
       - "equal_to"
       - "not_equal_to"
+  # Not a column: resolved against unread incoming messages, see FilterService#unread_filter_query
+  unread:
+    attribute_type: "standard"
+    data_type: "unread"
+    filter_operators:
+      - "equal_to"
+      - "not_equal_to"
   display_id:
     attribute_type: "standard"
     data_type: "Number"

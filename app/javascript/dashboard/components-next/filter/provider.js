@@ -141,6 +141,22 @@ export function useConversationFilterContext() {
       attributeModel: 'standard',
     },
     {
+      // Presentational values only: the backend resolves `unread` against incoming messages
+      // newer than agent_last_seen_at, it is not a column.
+      attributeKey: CONVERSATION_ATTRIBUTES.UNREAD,
+      value: CONVERSATION_ATTRIBUTES.UNREAD,
+      attributeName: t('FILTER.ATTRIBUTES.UNREAD'),
+      label: t('FILTER.ATTRIBUTES.UNREAD'),
+      inputType: 'multiSelect',
+      options: [
+        { id: 'true', name: t('FILTER.UNREAD_OPTIONS.TRUE') },
+        { id: 'false', name: t('FILTER.UNREAD_OPTIONS.FALSE') },
+      ],
+      dataType: 'text',
+      filterOperators: equalityOperators.value,
+      attributeModel: 'standard',
+    },
+    {
       attributeKey: CONVERSATION_ATTRIBUTES.ASSIGNEE_ID,
       value: CONVERSATION_ATTRIBUTES.ASSIGNEE_ID,
       attributeName: t('FILTER.ATTRIBUTES.ASSIGNEE_NAME'),

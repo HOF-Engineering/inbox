@@ -25,6 +25,10 @@ RSpec.describe Conversations::UnreadCounts::Listener do
     account.enable_features!(:conversation_unread_counts)
     message = create(:message, account: account, inbox: conversation.inbox, conversation: conversation, message_type: :outgoing)
     event = Events::Base.new('message.created', Time.zone.now, message: message)
+    # A human reply marks the conversation read, which refreshes counts on its own. Reset the
+    # spy so this example measures only what the listener itself does.
+    RSpec::Mocks.space.proxy_for(Conversations::UnreadCounts::Notifier).reset
+    allow(Conversations::UnreadCounts::Notifier).to receive(:new).and_return(notifier)
     allow(store).to receive(:clear_filter_caches!).and_return(true)
     allow(Rails.configuration.dispatcher).to receive(:dispatch)
 

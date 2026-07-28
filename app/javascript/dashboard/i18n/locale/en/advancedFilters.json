@@ -65,7 +65,12 @@
       "CUSTOM_ATTRIBUTE_LINK": "Link",
       "CUSTOM_ATTRIBUTE_CHECKBOX": "Checkbox",
       "CREATED_AT": "Created at",
-      "LAST_ACTIVITY": "Last activity"
+      "LAST_ACTIVITY": "Last activity",
+      "UNREAD": "Unread"
+    },
+    "UNREAD_OPTIONS": {
+      "TRUE": "Yes",
+      "FALSE": "No"
     },
     "ERRORS": {
       "VALUE_REQUIRED": "Value is required",

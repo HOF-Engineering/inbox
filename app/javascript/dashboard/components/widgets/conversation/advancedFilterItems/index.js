@@ -15,6 +15,14 @@ const filterTypes = [
     attributeModel: 'standard',
   },
   {
+    attributeKey: 'unread',
+    attributeI18nKey: 'UNREAD',
+    inputType: 'multi_select',
+    dataType: 'text',
+    filterOperators: OPERATOR_TYPES_1,
+    attributeModel: 'standard',
+  },
+  {
     attributeKey: 'assignee_id',
     attributeI18nKey: 'ASSIGNEE_NAME',
     inputType: 'search_select',
