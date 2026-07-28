@@ -583,7 +583,9 @@ RSpec.describe Conversation do
     end
 
     before do
-      create(:message, message_type: :outgoing, **message_params)
+      # An agent reply marks the conversation read, so keep it older than the incoming message
+      # for it to still count as unread.
+      create(:message, message_type: :outgoing, **message_params.merge(created_at: 2.minutes.ago))
     end
 
     it 'returns unread incoming messages' do

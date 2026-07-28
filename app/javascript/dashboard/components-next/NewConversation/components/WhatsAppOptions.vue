@@ -13,6 +13,11 @@ const props = defineProps({
     type: Number,
     required: true,
   },
+  // First name of the contact the new conversation is addressed to, used to pre-fill {{1}}.
+  prefillName: {
+    type: String,
+    default: '',
+  },
 });
 
 const emit = defineEmits(['sendMessage']);
@@ -120,6 +125,7 @@ const handleSendMessage = (template, hide) => {
       <WhatsappTemplate
         v-else
         :template="selectedTemplate"
+        :prefill-name="prefillName"
         @send-message="payload => handleSendMessage(payload, hide)"
         @back="handleBack"
       />

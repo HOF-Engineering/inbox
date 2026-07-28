@@ -119,13 +119,19 @@ class Api::V1::Accounts::ConversationsController < Api::V1::Accounts::BaseContro
     # Always update immediately if there are unread messages to maintain accurate read/unread state.
     # Visiting a conversation should clear any unread inbox notifications for this conversation.
     Notification::MarkConversationReadService.new(user: Current.user, account: Current.account, conversation: @conversation).perform
-    return update_last_seen_on_conversation(DateTime.now.utc, true) if assignee? && @conversation.assignee_unread_messages.any?
-    return update_last_seen_on_conversation(DateTime.now.utc, false) if !assignee? && @conversation.unread_messages.any?
+
+    # `agent_last_seen_at` is a single shared column that drives the unread badge for everybody,
+    # so only the assignee marks a conversation read by opening it. An administrator reviewing
+    # somebody else's conversation leaves it unread for the owner; it becomes read either when
+    # the assignee opens it or when the reviewer actually replies (Message#mark_conversation_read_on_human_reply).
+    return unless assignee?
+
+    return update_last_seen_on_conversation(DateTime.now.utc, true) if @conversation.assignee_unread_messages.any?
 
     # No unread messages - apply throttling to limit DB writes
     return unless should_update_last_seen?
 
-    update_last_seen_on_conversation(DateTime.now.utc, assignee?)
+    update_last_seen_on_conversation(DateTime.now.utc, true)
   end
 
   def unread

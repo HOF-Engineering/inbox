@@ -14,6 +14,7 @@ import ContentTemplateSelector from './ContentTemplateSelector.vue';
 
 const props = defineProps({
   attachedFiles: { type: Array, default: () => [] },
+  prefillName: { type: String, default: '' },
   isWhatsappInbox: { type: Boolean, default: false },
   isEmailOrWebWidgetInbox: { type: Boolean, default: false },
   isTwilioSmsInbox: { type: Boolean, default: false },
@@ -197,6 +198,7 @@ useEventListener(document, 'paste', onPaste);
       <WhatsAppOptions
         v-if="isWhatsappInbox"
         :inbox-id="inboxId"
+        :prefill-name="prefillName"
         @send-message="emit('sendWhatsappMessage', $event)"
       />
       <ContentTemplateSelector

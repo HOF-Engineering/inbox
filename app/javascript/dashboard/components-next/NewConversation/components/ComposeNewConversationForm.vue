@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useVuelidate } from '@vuelidate/core';
 import { required, requiredIf } from '@vuelidate/validators';
 import { INBOX_TYPES, isVoiceCallEnabled } from 'dashboard/helper/inbox';
+import { extractFirstName } from 'dashboard/helper/templateHelper';
 import {
   appendSignature,
   removeSignature,
@@ -146,6 +147,12 @@ const newMessagePayload = () => {
 const contactableInboxesList = computed(() => {
   return buildContactableInboxesList(props.selectedContact?.contactInboxes);
 });
+
+// First name of the contact this new conversation is addressed to. There is no selected chat
+// yet on this screen, so the WhatsApp template pre-fill has to come from the contact itself.
+const prefillName = computed(() =>
+  extractFirstName(props.selectedContact?.name)
+);
 
 const showNoInboxAlert = computed(() => {
   return (
@@ -438,6 +445,7 @@ useKeyboardEvents({
     <ActionButtons
       v-else
       :attached-files="state.attachedFiles"
+      :prefill-name="prefillName"
       :is-whatsapp-inbox="inboxTypes.isWhatsapp"
       :is-email-or-web-widget-inbox="inboxTypes.isEmailOrWebWidget"
       :is-twilio-sms-inbox="inboxTypes.isTwilioSMS"

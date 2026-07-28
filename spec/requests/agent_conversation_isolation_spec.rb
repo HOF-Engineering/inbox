@@ -216,6 +216,52 @@ RSpec.describe 'Agent conversation isolation', type: :request do
     end
   end
 
+  # An administrator reviewing a conversation must not steal the owner's unread badge:
+  # `agent_last_seen_at` is a single shared column that drives unread_count for everybody.
+  describe 'read state when a non-assignee reviews a conversation' do
+    it 'leaves the conversation unread when an administrator only opens it' do
+      expect(conv_a.unread_incoming_messages.count).to eq(1)
+      seen_before = conv_a.agent_last_seen_at
+
+      post "/api/v1/accounts/#{account.id}/conversations/#{conv_a.display_id}/update_last_seen",
+           headers: admin_headers, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(conv_a.reload.agent_last_seen_at).to eq(seen_before)
+      expect(conv_a.unread_incoming_messages.count).to eq(1)
+    end
+
+    it 'marks it read once the administrator actually replies' do
+      post "/api/v1/accounts/#{account.id}/conversations/#{conv_a.display_id}/update_last_seen",
+           headers: admin_headers, as: :json
+      post "/api/v1/accounts/#{account.id}/conversations/#{conv_a.display_id}/messages",
+           params: { content: 'stepping in for you' }, headers: admin_headers, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(conv_a.reload.agent_last_seen_at).to be_present
+      expect(conv_a.unread_incoming_messages.count).to eq(0)
+    end
+
+    it 'does not mark it read when the administrator only leaves a private note' do
+      seen_before = conv_a.agent_last_seen_at
+
+      post "/api/v1/accounts/#{account.id}/conversations/#{conv_a.display_id}/messages",
+           params: { content: 'internal note', private: true }, headers: admin_headers, as: :json
+
+      expect(conv_a.reload.agent_last_seen_at).to eq(seen_before)
+      expect(conv_a.unread_incoming_messages.count).to eq(1)
+    end
+
+    it 'still marks it read when the assignee opens it' do
+      post "/api/v1/accounts/#{account.id}/conversations/#{conv_a.display_id}/update_last_seen",
+           headers: agent_a_headers, as: :json
+
+      expect(response).to have_http_status(:success)
+      expect(conv_a.reload.agent_last_seen_at).to be_present
+      expect(conv_a.unread_incoming_messages.count).to eq(0)
+    end
+  end
+
   describe 'mutating actions on another agents conversation' do
     it 'denies every single-conversation mutation' do
       requests = [

@@ -8,6 +8,10 @@ defineProps({
     type: Object,
     default: () => ({}),
   },
+  prefillName: {
+    type: String,
+    default: '',
+  },
 });
 
 const emit = defineEmits(['sendMessage', 'back']);
@@ -28,6 +32,7 @@ const handleBack = () => {
     <div class="w-full">
       <WhatsAppTemplateParser
         :template="template"
+        :prefill-name="prefillName"
         @send-message="handleSendMessage"
         @back="handleBack"
       >

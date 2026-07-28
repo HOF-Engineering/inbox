@@ -55,6 +55,10 @@ export const getTemplateGroup = template => {
   return match ? match[0] : TEMPLATE_GROUPS.OTHER;
 };
 
+// First name used to pre-fill the first template variable ({{1}}).
+export const extractFirstName = fullName =>
+  (fullName || '').trim().split(/\s+/)[0] || '';
+
 export const findComponentByType = (template, type) =>
   template.components?.find(component => component.type === type);
 

@@ -1,5 +1,6 @@
 <script>
 import TemplatesPicker from './TemplatesPicker.vue';
+import { extractFirstName } from 'dashboard/helper/templateHelper';
 import WhatsAppTemplateReply from './WhatsAppTemplateReply.vue';
 export default {
   components: {
@@ -41,8 +42,7 @@ export default {
     // First name of the current conversation's contact — used to pre-fill {{1}}.
     prefillName() {
       const chat = this.$store.getters.getSelectedChat;
-      const name = chat?.meta?.sender?.name || '';
-      return name.trim().split(/\s+/)[0] || '';
+      return extractFirstName(chat?.meta?.sender?.name);
     },
   },
   methods: {

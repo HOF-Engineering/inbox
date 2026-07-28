@@ -326,6 +326,7 @@ class Message < ApplicationRecord
     reopen_conversation
     mark_pending_conversation_as_open_for_human_response
     set_conversation_activity
+    mark_conversation_read_on_human_reply
     dispatch_create_events
     send_reply
     execute_message_template_hooks
@@ -334,6 +335,19 @@ class Message < ApplicationRecord
 
   def update_contact_activity
     sender.update(last_activity_at: DateTime.now) if sender.is_a?(Contact)
+  end
+
+  # Replying means the sender has read the conversation, so clear the shared unread marker.
+  # This is the only way somebody who is not the assignee marks a conversation read - merely
+  # opening it deliberately leaves it unread so the assignee does not lose track of it.
+  def mark_conversation_read_on_human_reply
+    return if private?
+    return unless human_response?
+
+    # rubocop:disable Rails/SkipsModelValidations
+    conversation.update_columns(agent_last_seen_at: created_at)
+    # rubocop:enable Rails/SkipsModelValidations
+    ::Conversations::UnreadCounts::Notifier.new(conversation).perform
   end
 
   def update_waiting_since
