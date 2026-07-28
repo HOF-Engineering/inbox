@@ -32,7 +32,9 @@ RSpec.describe 'Api::V1::Accounts::BulkActionsController', type: :request do
     end
 
     context 'when it is an authenticated user' do
-      let!(:agent) { create(:user, account: account, role: :agent) }
+      # An administrator, so these examples cover the bulk-update mechanics. The assigned-only
+      # boundary for agents is asserted in spec/requests/agent_conversation_isolation_spec.rb.
+      let!(:agent) { create(:user, account: account, role: :administrator) }
 
       before do
         Conversation.all.find_each { |conversation| create(:inbox_member, inbox: conversation.inbox, user: agent) }
@@ -204,7 +206,7 @@ RSpec.describe 'Api::V1::Accounts::BulkActionsController', type: :request do
 
   describe 'POST /api/v1/accounts/{account.id}/bulk_actions' do
     context 'when it is an authenticated user' do
-      let!(:agent) { create(:user, account: account, role: :agent) }
+      let!(:agent) { create(:user, account: account, role: :administrator) }
 
       before do
         Conversation.all.find_each { |conversation| create(:inbox_member, inbox: conversation.inbox, user: agent) }

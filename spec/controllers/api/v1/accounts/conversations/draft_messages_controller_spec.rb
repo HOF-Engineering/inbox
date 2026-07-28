@@ -21,6 +21,7 @@ RSpec.describe 'Conversation Draft Messages API', type: :request do
 
       before do
         create(:inbox_member, inbox: conversation.inbox, user: agent)
+        conversation.update!(assignee: agent)
       end
 
       it 'saves the draft message for the conversation' do

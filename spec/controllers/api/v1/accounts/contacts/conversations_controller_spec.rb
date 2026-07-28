@@ -13,10 +13,11 @@ RSpec.describe '/api/v1/accounts/{account.id}/contacts/:id/conversations', type:
 
   before do
     create(:inbox_member, user: agent, inbox: inbox_1)
-    2.times.each do
-      create(:conversation, account: account, inbox: inbox_1, contact: contact, contact_inbox: contact_inbox_1)
-      create(:conversation, account: account, inbox: inbox_2, contact: contact, contact_inbox: contact_inbox_2)
-    end
+    # one assigned to the agent and one to somebody else per inbox
+    create(:conversation, account: account, inbox: inbox_1, contact: contact, contact_inbox: contact_inbox_1, assignee: agent)
+    create(:conversation, account: account, inbox: inbox_1, contact: contact, contact_inbox: contact_inbox_1)
+    create(:conversation, account: account, inbox: inbox_2, contact: contact, contact_inbox: contact_inbox_2, assignee: agent)
+    create(:conversation, account: account, inbox: inbox_2, contact: contact, contact_inbox: contact_inbox_2)
   end
 
   describe 'GET /api/v1/accounts/{account.id}/contacts/:id/conversations' do
@@ -40,13 +41,13 @@ RSpec.describe '/api/v1/accounts/{account.id}/contacts/:id/conversations', type:
       end
 
       context 'with user as agent' do
-        it 'returns conversations from the inboxes which agent has access to' do
+        it 'returns only the conversations assigned to the agent in inboxes it has access to' do
           get "/api/v1/accounts/#{account.id}/contacts/#{contact.id}/conversations", headers: agent.create_new_auth_token
 
           expect(response).to have_http_status(:success)
           json_response = response.parsed_body
 
-          expect(json_response['payload'].length).to eq 2
+          expect(json_response['payload'].length).to eq 1
         end
       end
 

@@ -14,7 +14,7 @@ RSpec.describe '/api/v1/accounts/{account.id}/contacts/:id/attachments', type: :
   before do
     create(:inbox_member, user: agent, inbox: inbox_1)
 
-    conversation_1 = create(:conversation, account: account, inbox: inbox_1, contact: contact, contact_inbox: contact_inbox_1)
+    conversation_1 = create(:conversation, account: account, inbox: inbox_1, contact: contact, contact_inbox: contact_inbox_1, assignee: agent)
     conversation_2 = create(:conversation, account: account, inbox: inbox_2, contact: contact, contact_inbox: contact_inbox_2)
 
     create(:message, :with_attachment, conversation: conversation_1, account: account, inbox: inbox_1, message_type: 'incoming')

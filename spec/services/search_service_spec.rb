@@ -5,7 +5,10 @@ describe SearchService do
 
   let(:search_type) { 'all' }
   let!(:account) { create(:account) }
-  let!(:user) { create(:user, account: account) }
+  # An administrator, because these examples cover search mechanics (time caps, sender/inbox
+  # filters, GIN vs LIKE) over the whole account. Agent scoping is asserted separately below
+  # and end-to-end in spec/requests/agent_conversation_isolation_spec.rb.
+  let!(:user) { create(:user, account: account, role: :administrator) }
   let!(:inbox) { create(:inbox, account: account, enable_auto_assignment: false) }
   let!(:harry) { create(:contact, name: 'Harry Potter', email: 'test@test.com', account_id: account.id) }
   let!(:conversation) { create(:conversation, contact: harry, inbox: inbox, account: account) }
@@ -83,11 +86,11 @@ describe SearchService do
       it 'searches across message content and return in created_at desc' do
         # random messages in another account
         create(:message, content: 'Harry Potter is a wizard')
-        # random messsage in inbox with out access
-        create(:message, account: account, inbox: create(:inbox, account: account), content: 'Harry Potter is a wizard')
+        # message in another inbox of the same account - visible to an administrator
+        other_inbox_message = create(:message, account: account, inbox: create(:inbox, account: account), content: 'Harry Potter is a wizard')
         params = { q: 'Harry' }
         search = described_class.new(current_user: user, current_account: account, params: params, search_type: 'Message')
-        expect(search.perform[:messages].map(&:id)).to eq([message2.id, message.id])
+        expect(search.perform[:messages].map(&:id)).to eq([other_inbox_message.id, message2.id, message.id])
       end
 
       context 'with feature flag for search type' do
@@ -261,6 +264,28 @@ describe SearchService do
       end
     end
 
+    context 'when the searching user is an agent' do
+      let!(:agent) { create(:user, account: account, role: :agent) }
+      let!(:own_conversation) { create(:conversation, contact: harry, inbox: inbox, account: account, assignee: agent) }
+      let!(:own_message) { create(:message, account: account, inbox: inbox, conversation: own_conversation, content: 'Harry Potter mine') }
+
+      before { create(:inbox_member, user: agent, inbox: inbox) }
+
+      it 'only returns conversations assigned to the agent' do
+        params = { q: 'Harry' }
+        agent_search = described_class.new(current_user: agent, current_account: account, params: params, search_type: 'Conversation')
+
+        expect(agent_search.perform[:conversations].map(&:id)).to contain_exactly(own_conversation.id)
+      end
+
+      it 'only returns messages from conversations assigned to the agent' do
+        params = { q: 'Harry' }
+        agent_search = described_class.new(current_user: agent, current_account: account, params: params, search_type: 'Message')
+
+        expect(agent_search.perform[:messages].map(&:id)).to contain_exactly(own_message.id)
+      end
+    end
+
     context 'when article search' do
       it 'returns matching articles' do
         article2 = create(:article, title: 'Spellcasting Guide',
@@ -415,6 +440,12 @@ describe SearchService do
         expect(base_query.to_sql).to include('inbox_id')
       end
 
+      it 'restricts messages to the conversations assigned to the agent' do
+        base_query = search.send(:message_base_query)
+
+        expect(base_query.to_sql).to include('"conversations"."assignee_id"')
+      end
+
       context 'when user has access to all inboxes' do
         before do
           # Create additional inbox and assign user to all inboxes
@@ -422,12 +453,12 @@ describe SearchService do
           create(:inbox_member, user: user, inbox: other_inbox)
         end
 
-        it 'skips inbox filtering as optimization' do
+        it 'still applies inbox and assignee filtering' do
           base_query = search.send(:message_base_query)
 
-          # Should only have the time filter, not inbox filter
           expect(base_query.to_sql).to include('created_at >= ')
-          expect(base_query.to_sql).not_to include('inbox_id')
+          expect(base_query.to_sql).to include('inbox_id')
+          expect(base_query.to_sql).to include('"conversations"."assignee_id"')
         end
       end
     end

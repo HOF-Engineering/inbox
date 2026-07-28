@@ -4,9 +4,56 @@ export const DEFAULT_CATEGORY = 'UTILITY';
 export const COMPONENT_TYPES = {
   HEADER: 'HEADER',
   BODY: 'BODY',
+  FOOTER: 'FOOTER',
   BUTTONS: 'BUTTONS',
 };
 export const MEDIA_FORMATS = ['IMAGE', 'VIDEO', 'DOCUMENT'];
+
+// Presentational grouping for the template picker, derived from the template name.
+// Extend the keyword lists here as new template naming conventions appear.
+export const TEMPLATE_GROUPS = {
+  ALL: 'ALL',
+  GREETINGS: 'GREETINGS',
+  FOLLOW_UPS: 'FOLLOW_UPS',
+  QUOTES_AND_DETAILS: 'QUOTES_AND_DETAILS',
+  OTHER: 'OTHER',
+};
+
+export const TEMPLATE_GROUP_KEYWORDS = {
+  [TEMPLATE_GROUPS.GREETINGS]: [
+    'greeting',
+    'welcome',
+    'intro',
+    'checkin',
+    'check_in',
+  ],
+  [TEMPLATE_GROUPS.FOLLOW_UPS]: [
+    'followup',
+    'follow_up',
+    'reminder',
+    'missed',
+    'no_answer',
+    'reengage',
+  ],
+  [TEMPLATE_GROUPS.QUOTES_AND_DETAILS]: [
+    'quote',
+    'detail',
+    'artwork',
+    'sample',
+    'doc',
+    'payment',
+    'call',
+  ],
+};
+
+export const getTemplateGroup = template => {
+  const name = template.name?.toLowerCase() ?? '';
+  const match = Object.entries(TEMPLATE_GROUP_KEYWORDS).find(([, keywords]) =>
+    keywords.some(keyword => name.includes(keyword))
+  );
+
+  return match ? match[0] : TEMPLATE_GROUPS.OTHER;
+};
 
 export const findComponentByType = (template, type) =>
   template.components?.find(component => component.type === type);

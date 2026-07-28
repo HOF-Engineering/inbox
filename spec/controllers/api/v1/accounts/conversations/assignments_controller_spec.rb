@@ -20,6 +20,7 @@ RSpec.describe 'Conversation Assignment API', type: :request do
 
       before do
         create(:inbox_member, inbox: conversation.inbox, user: agent)
+        conversation.update!(assignee: agent)
       end
 
       it 'returns unauthorized' do
@@ -41,6 +42,7 @@ RSpec.describe 'Conversation Assignment API', type: :request do
 
       before do
         create(:inbox_member, inbox: conversation.inbox, user: agent)
+        conversation.update!(assignee: agent)
       end
 
       it 'assigns a user to the conversation' do
@@ -103,6 +105,7 @@ RSpec.describe 'Conversation Assignment API', type: :request do
 
       it 'assignment of an agent in the conversation by bot agent' do
         create(:inbox_member, user: agent, inbox: conversation.inbox)
+        conversation.update!(assignee: agent)
 
         conversation.update!(assignee_id: nil)
         expect(conversation.reload.assignee).to be_nil
@@ -120,6 +123,7 @@ RSpec.describe 'Conversation Assignment API', type: :request do
 
       it 'assignment of an team in the conversation by bot agent' do
         create(:inbox_member, user: agent, inbox: conversation.inbox)
+        conversation.update!(assignee: agent)
 
         conversation.update!(team_id: nil)
         expect(conversation.reload.team).to be_nil
@@ -141,6 +145,7 @@ RSpec.describe 'Conversation Assignment API', type: :request do
 
       before do
         create(:inbox_member, inbox: conversation.inbox, user: agent)
+        conversation.update!(assignee: agent)
         conversation.update!(assignee: agent)
       end
 
@@ -167,6 +172,7 @@ RSpec.describe 'Conversation Assignment API', type: :request do
       before do
         conversation.update!(team: team)
         create(:inbox_member, inbox: conversation.inbox, user: agent)
+        conversation.update!(assignee: agent)
       end
 
       it 'unassigns the team from the conversation' do

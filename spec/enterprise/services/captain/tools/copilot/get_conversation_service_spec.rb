@@ -104,7 +104,9 @@ RSpec.describe Captain::Tools::Copilot::GetConversationService do
 
     context 'when conversation exists' do
       let(:inbox) { create(:inbox, account: account) }
-      let(:conversation) { create(:conversation, account: account, inbox: inbox) }
+      let(:conversation) { create(:conversation, account: account, inbox: inbox, assignee: user) }
+
+      before { create(:inbox_member, user: user, inbox: inbox) }
 
       it 'returns the conversation in llm text format' do
         result = service.execute(conversation_id: conversation.display_id)

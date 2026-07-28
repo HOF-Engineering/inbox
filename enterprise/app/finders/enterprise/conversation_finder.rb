@@ -18,7 +18,9 @@ module Enterprise::ConversationFinder
     conversations = conversations.where(inbox_id: @inbox_ids) if params[:inbox_id]
     return conversations if account_user&.administrator?
 
-    conversations.where(inbox: current_user.inboxes.where(account_id: current_account.id))
+    # SECURITY-CRITICAL: this re-derives from the account scope, so it must apply the
+    # assigned-only boundary itself instead of relying on the permission filter service.
+    conversations.where(inbox: current_user.inboxes.where(account_id: current_account.id)).visible_to_agent(current_user)
   end
 
   def custom_role_participating_permission?

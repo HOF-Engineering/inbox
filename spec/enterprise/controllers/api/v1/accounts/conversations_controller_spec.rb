@@ -31,7 +31,7 @@ RSpec.describe 'Conversations API', type: :request do
       expect(response.parsed_body.keys).not_to include('sla_events')
     end
 
-    context 'when agent has team access' do
+    context 'when agent has team access but is not the assignee' do
       let(:agent) { create(:user, account: account, role: :agent) }
       let(:team) { create(:team, account: account) }
       let(:conversation) { create(:conversation, account: account, team: team) }
@@ -40,11 +40,10 @@ RSpec.describe 'Conversations API', type: :request do
         create(:team_member, team: team, user: agent)
       end
 
-      it 'allows accessing the conversation via team membership' do
+      it 'denies access, team membership alone does not grant conversation access' do
         get "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}", headers: agent.create_new_auth_token
 
-        expect(response).to have_http_status(:ok)
-        expect(response.parsed_body['id']).to eq(conversation.display_id)
+        expect(response).to have_http_status(:unauthorized)
       end
     end
 
@@ -89,7 +88,7 @@ RSpec.describe 'Conversations API', type: :request do
         expect(response.parsed_body['id']).to eq(conversation.display_id)
       end
 
-      it 'returns the conversation when permission allows managing participating conversations' do
+      it 'returns unauthorized when the agent is only a participant and not the assignee' do
         custom_role = create(:custom_role, account: account, permissions: ['conversation_participating_manage'])
         account_user = account.account_users.find_by(user_id: agent.id)
         account_user.update!(custom_role: custom_role)
@@ -97,8 +96,7 @@ RSpec.describe 'Conversations API', type: :request do
 
         get "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}", headers: agent.create_new_auth_token
 
-        expect(response).to have_http_status(:ok)
-        expect(response.parsed_body['id']).to eq(conversation.display_id)
+        expect(response).to have_http_status(:unauthorized)
       end
     end
   end
@@ -222,7 +220,7 @@ RSpec.describe 'Conversations API', type: :request do
       end
     end
 
-    context 'when agent has team access' do
+    context 'when agent has team access but is not the assignee' do
       let(:team_agent) { create(:user, account: account, role: :agent) }
       let(:team) { create(:team, account: account) }
 
@@ -231,16 +229,12 @@ RSpec.describe 'Conversations API', type: :request do
         conversation.update!(team: team)
       end
 
-      it 'allows accessing conversation reporting events via team membership' do
+      it 'denies access to conversation reporting events' do
         get "/api/v1/accounts/#{account.id}/conversations/#{conversation.display_id}/reporting_events",
             headers: team_agent.create_new_auth_token,
             as: :json
 
-        expect(response).to have_http_status(:success)
-        json_response = response.parsed_body
-
-        expect(json_response).to be_an(Array)
-        expect(json_response.size).to eq(3)
+        expect(response).to have_http_status(:unauthorized)
       end
     end
   end

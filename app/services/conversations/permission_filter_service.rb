@@ -10,10 +10,17 @@ class Conversations::PermissionFilterService
   def perform
     return conversations if user_role == 'administrator'
 
-    accessible_conversations
+    restrict_to_assigned(accessible_conversations)
   end
 
   private
+
+  # SECURITY-CRITICAL: agents are limited to conversations assigned to them.
+  # Any override of `perform` (see the enterprise overlay) must pass its final
+  # relation through this helper so it can never widen access.
+  def restrict_to_assigned(scope)
+    scope.visible_to_agent(user)
+  end
 
   def accessible_conversations
     conversations.where(inbox: user.inboxes.where(account_id: account.id))

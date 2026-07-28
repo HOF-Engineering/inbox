@@ -76,24 +76,26 @@ RSpec.describe '/api/v1/accounts/{account.id}/contacts/:id/conversations enterpr
           account_user.update!(role: :agent, custom_role: custom_role)
         end
 
-        it 'returns unassigned conversations AND conversations assigned to the agent' do
+        it 'returns only the conversations assigned to the agent' do
           get "/api/v1/accounts/#{account.id}/contacts/#{contact.id}/conversations",
               headers: agent_with_custom_role.create_new_auth_token
 
           expect(response).to have_http_status(:success)
           json_response = response.parsed_body
 
-          # Should return both unassigned and assigned to this agent conversations
-          expect(json_response['payload'].length).to eq 2
-          conversation_ids = json_response['payload'].pluck('id')
-          expect(conversation_ids).to include(unassigned_conversation.display_id)
-          expect(conversation_ids).to include(assigned_conversation.display_id)
+          # conversation_unassigned_manage can no longer widen beyond assigned-only
+          expect(json_response['payload'].pluck('id')).to contain_exactly(assigned_conversation.display_id)
         end
       end
 
       context 'with conversation_manage permission' do
+        let!(:own_conversation) do
+          create(:conversation, account: account, inbox: inbox, contact: contact,
+                                contact_inbox: contact_inbox, assignee: agent_with_custom_role)
+        end
+
         before do
-          # Create multiple conversations
+          # Create multiple conversations the agent is not assigned to
           3.times do
             create(:conversation, account: account, inbox: inbox, contact: contact,
                                   contact_inbox: contact_inbox)
@@ -107,15 +109,15 @@ RSpec.describe '/api/v1/accounts/{account.id}/contacts/:id/conversations enterpr
           account_user.update!(role: :agent, custom_role: custom_role)
         end
 
-        it 'returns all conversations' do
+        it 'returns only the conversations assigned to the agent' do
           get "/api/v1/accounts/#{account.id}/contacts/#{contact.id}/conversations",
               headers: agent_with_custom_role.create_new_auth_token
 
           expect(response).to have_http_status(:success)
           json_response = response.parsed_body
 
-          # Should return all conversations in this inbox
-          expect(json_response['payload'].length).to eq 3
+          # conversation_manage can no longer widen beyond assigned-only
+          expect(json_response['payload'].pluck('id')).to contain_exactly(own_conversation.display_id)
         end
       end
     end

@@ -11,13 +11,16 @@ class Captain::Copilot::ChatService < Llm::BaseAiService
     @user = nil
     @copilot_thread = nil
     @previous_history = []
-    @conversation = @account.conversations.find_by(display_id: config[:conversation_id])
-    @conversation_id = @conversation&.display_id
 
     setup_user(config)
+    # SECURITY-CRITICAL: resolve through the permission filter, not the account scope, so an
+    # agent can never seed copilot with a conversation they are not assigned to.
+    @conversation = permissible_conversations.find_by(display_id: config[:conversation_id])
+    @conversation_id = @conversation&.display_id
+
     setup_message_history(config)
     @tools = build_tools
-    @messages = build_messages(config)
+    @messages = build_messages
   end
 
   def generate_response(input)
@@ -39,11 +42,17 @@ class Captain::Copilot::ChatService < Llm::BaseAiService
     @user = @account.users.find_by(id: config[:user_id]) if config[:user_id].present?
   end
 
-  def build_messages(config)
+  def permissible_conversations
+    return Conversation.none if @user.blank?
+
+    Conversations::PermissionFilterService.new(@account.conversations, @user, @account).perform
+  end
+
+  def build_messages
     messages= [system_message]
     messages << account_id_context
     messages += @previous_history if @previous_history.present?
-    messages += current_viewing_history(config[:conversation_id]) if config[:conversation_id].present?
+    messages += current_viewing_history if @conversation.present?
     messages
   end
 
@@ -97,18 +106,14 @@ class Captain::Copilot::ChatService < Llm::BaseAiService
     }
   end
 
-  def current_viewing_history(conversation_id)
-    conversation = @account.conversations.find_by(display_id: conversation_id)
-    return [] unless conversation
-
-    Rails.logger.info("#{self.class.name} Assistant: #{@assistant.id}, Setting viewing history for conversation_id=#{conversation_id}")
-    contact_id = conversation.contact_id
+  def current_viewing_history
+    Rails.logger.info("#{self.class.name} Assistant: #{@assistant.id}, Setting viewing history for conversation_id=#{@conversation_id}")
     [{
       role: 'system',
       content: <<~HISTORY.strip
         You are currently viewing the conversation with the following details:
-        Conversation ID: #{conversation_id}
-        Contact ID: #{contact_id}
+        Conversation ID: #{@conversation_id}
+        Contact ID: #{@conversation.contact_id}
       HISTORY
     }]
   end

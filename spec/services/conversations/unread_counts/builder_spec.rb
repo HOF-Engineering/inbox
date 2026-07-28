@@ -81,10 +81,10 @@ RSpec.describe Conversations::UnreadCounts::Builder do
     end
 
     it 'stores unread open conversations by mentions and participating dimensions' do
-      mentioned_conversation = create_unread_conversation(account: account, inbox: inbox)
-      participating_conversation = create_unread_conversation(account: account, inbox: inbox)
-      resolved_mentioned_conversation = create_unread_conversation(account: account, inbox: inbox)
-      inaccessible_conversation = create_unread_conversation(account: account, inbox: create(:inbox, account: account))
+      mentioned_conversation = create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
+      participating_conversation = create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
+      resolved_mentioned_conversation = create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
+      inaccessible_conversation = create_unread_conversation(account: account, inbox: create(:inbox, account: account), assignee: assignee)
       resolved_mentioned_conversation.update!(status: :resolved)
 
       create(:mention, account: account, conversation: mentioned_conversation, user: assignee)
@@ -100,7 +100,7 @@ RSpec.describe Conversations::UnreadCounts::Builder do
     end
 
     it 'excludes participating conversations that are no longer visible to the user' do
-      participating_conversation = create_unread_conversation(account: account, inbox: inbox)
+      participating_conversation = create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
       create(:conversation_participant, account: account, conversation: participating_conversation, user: assignee)
       InboxMember.find_by!(user: assignee, inbox: inbox).destroy!
 
@@ -110,11 +110,11 @@ RSpec.describe Conversations::UnreadCounts::Builder do
     end
 
     it 'stores visible unread open unattended conversations' do
-      no_first_reply_conversation = create_unread_conversation(account: account, inbox: inbox)
-      waiting_conversation = create_unread_conversation(account: account, inbox: inbox)
-      attended_conversation = create_unread_conversation(account: account, inbox: inbox)
-      inaccessible_conversation = create_unread_conversation(account: account, inbox: create(:inbox, account: account))
-      resolved_conversation = create_unread_conversation(account: account, inbox: inbox)
+      no_first_reply_conversation = create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
+      waiting_conversation = create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
+      attended_conversation = create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
+      inaccessible_conversation = create_unread_conversation(account: account, inbox: create(:inbox, account: account), assignee: assignee)
+      resolved_conversation = create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
       create_read_conversation
 
       waiting_conversation.update!(first_reply_created_at: 5.minutes.ago)
@@ -131,7 +131,7 @@ RSpec.describe Conversations::UnreadCounts::Builder do
     end
 
     it 'stores folder memberships using the saved filter status conditions' do
-      resolved_conversation = create_unread_conversation(account: account, inbox: inbox)
+      resolved_conversation = create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
       resolved_conversation.update!(status: :resolved)
       create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
       custom_filter = create(
@@ -144,8 +144,8 @@ RSpec.describe Conversations::UnreadCounts::Builder do
     end
 
     it 'loads folder filters after taking the invalidation version snapshot' do
-      create_unread_conversation(account: account, inbox: inbox)
-      resolved_conversation = create_unread_conversation(account: account, inbox: inbox)
+      create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
+      resolved_conversation = create_unread_conversation(account: account, inbox: inbox, assignee: assignee)
       resolved_conversation.update!(status: :resolved)
       custom_filter = create(
         :custom_filter, account: account, user: assignee, filter_type: :conversation, query: filter_query('status', ['open'])

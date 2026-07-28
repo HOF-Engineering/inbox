@@ -4,7 +4,7 @@ RSpec.describe 'Dyte Integration API', type: :request do
   let(:headers) { { 'Content-Type' => 'application/json' } }
   let(:account) { create(:account) }
   let(:inbox) { create(:inbox, account: account) }
-  let(:conversation) { create(:conversation, account: account, status: :pending) }
+  let(:conversation) { create(:conversation, account: account, status: :pending, assignee: agent) }
   let(:message) { create(:message, conversation: conversation, account: account, inbox: conversation.inbox) }
   let(:integration_message) do
     create(:message, content_type: 'integrations',

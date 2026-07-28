@@ -263,6 +263,8 @@ describe Conversations::FilterService do
       end
 
       it 'filter conversations by tags' do
+        # labelled on a conversation assigned to the filtering agent; user_2's is no longer visible
+        en_conversation_1.update_labels('support')
         user_2_assigned_conversation.update_labels('support')
         params[:payload] = [
           {
@@ -345,6 +347,10 @@ describe Conversations::FilterService do
       let!(:params) { { payload: [], page: 1 } }
 
       it 'filter by custom_attributes and labels' do
+        own_conversation = create(:conversation, account: account, inbox: inbox, assignee: user_1,
+                                                 custom_attributes: { conversation_type: 'platinum', conversation_created: '2022-01-19' })
+        own_conversation.update_labels('support')
+        # the same match assigned to user_2 must stay hidden
         user_2_assigned_conversation.update_labels('support')
         params[:payload] = [
           {
@@ -369,10 +375,14 @@ describe Conversations::FilterService do
         ]
         result = filter_service.new(params, user_1, account).perform
         expect(result[:conversations].length).to be 1
-        expect(result[:conversations][0][:id]).to be user_2_assigned_conversation.id
+        expect(result[:conversations][0][:id]).to be own_conversation.id
       end
 
       it 'filter by custom_attributes and labels with custom_attribute_type nil' do
+        own_conversation = create(:conversation, account: account, inbox: inbox, assignee: user_1,
+                                                 custom_attributes: { conversation_type: 'platinum', conversation_created: '2022-01-19' })
+        own_conversation.update_labels('support')
+        # the same match assigned to user_2 must stay hidden
         user_2_assigned_conversation.update_labels('support')
         params[:payload] = [
           {
@@ -397,10 +407,12 @@ describe Conversations::FilterService do
         ]
         result = filter_service.new(params, user_1, account).perform
         expect(result[:conversations].length).to be 1
-        expect(result[:conversations][0][:id]).to be user_2_assigned_conversation.id
+        expect(result[:conversations][0][:id]).to be own_conversation.id
       end
 
       it 'filter by custom_attributes' do
+        create(:conversation, account: account, inbox: inbox, assignee: user_1,
+                              custom_attributes: { conversation_type: 'platinum', conversation_created: '2022-01-19' })
         params[:payload] = [
           {
             attribute_key: 'conversation_type',
@@ -422,6 +434,8 @@ describe Conversations::FilterService do
       end
 
       it 'filter by custom_attributes with custom_attribute_type nil' do
+        create(:conversation, account: account, inbox: inbox, assignee: user_1,
+                              custom_attributes: { conversation_type: 'platinum', conversation_created: '2022-01-19' })
         params[:payload] = [
           {
             attribute_key: 'conversation_type',
@@ -485,7 +499,7 @@ describe Conversations::FilterService do
           }.with_indifferent_access
         ]
         result = filter_service.new(params, user_1, account).perform
-        expected_count = account.conversations.where('created_at > ?', DateTime.parse('2022-01-20')).count
+        expected_count = account.conversations.where(assignee: user_1).where('created_at > ?', DateTime.parse('2022-01-20')).count
         expect(result[:conversations].length).to eq expected_count
       end
 
@@ -542,8 +556,9 @@ describe Conversations::FilterService do
           }.with_indifferent_access
         ]
         result = filter_service.new(params, user_1, account).perform
-        expected_count = account.conversations.where("created_at > ? AND custom_attributes->>'conversation_type' = ?",
-                                                     DateTime.parse('2022-01-20'), 'platinum').count
+        expected_count = account.conversations.where(assignee: user_1)
+                                .where("created_at > ? AND custom_attributes->>'conversation_type' = ?",
+                                       DateTime.parse('2022-01-20'), 'platinum').count
 
         expect(result[:conversations].length).to eq expected_count
       end
@@ -592,7 +607,7 @@ describe Conversations::FilterService do
             }.with_indifferent_access
           ]
 
-          expected_count = account.conversations.where('last_activity_at < ?', (Time.zone.today - 2.days)).count
+          expected_count = account.conversations.where(assignee: user_1).where('last_activity_at < ?', (Time.zone.today - 2.days)).count
 
           result = filter_service.new(params, user_1, account).perform
           expect(result[:conversations].length).to eq expected_count
@@ -620,7 +635,7 @@ describe Conversations::FilterService do
           }.with_indifferent_access
         ]
         result = filter_service.new(params, user_1, account).perform
-        expected_count = account.conversations.where('created_at > ?', DateTime.parse('2022-01-20')).count
+        expected_count = account.conversations.where(assignee: user_1).where('created_at > ?', DateTime.parse('2022-01-20')).count
 
         expect(Current.account).to be_nil
         expect(result[:conversations].length).to eq expected_count
@@ -642,9 +657,9 @@ describe Conversations::FilterService do
       # Make user_1 a regular agent with access to inbox_1 only
       create(:inbox_member, user: user_1, inbox: inbox_1)
 
-      # Create conversations in both inboxes
-      create(:conversation, account: account, inbox: inbox_1)
-      create(:conversation, account: account, inbox: inbox_2)
+      # Create conversations in both inboxes, both assigned to user_1 so only inbox membership differs
+      create(:conversation, account: account, inbox: inbox_1, assignee: user_1)
+      create(:conversation, account: account, inbox: inbox_2, assignee: user_1)
     end
 
     it 'returns all conversations for administrators, even for inboxes they are not members of' do

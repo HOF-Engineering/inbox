@@ -7,6 +7,7 @@ RSpec.describe 'Conversation Participants API', type: :request do
 
   before do
     create(:inbox_member, inbox: conversation.inbox, user: agent)
+    conversation.update!(assignee: agent)
   end
 
   describe 'GET /api/v1/accounts/{account.id}/conversations/<id>/paricipants' do

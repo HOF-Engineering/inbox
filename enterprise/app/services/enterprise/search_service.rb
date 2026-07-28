@@ -18,6 +18,9 @@ module Enterprise::SearchService
   def build_where_conditions
     conditions = { account_id: current_account.id }
     conditions[:inbox_id] = accessable_inbox_ids unless should_skip_inbox_filtering?
+    # SECURITY-CRITICAL: the message index carries no assignee, so restrict agents to the
+    # conversations they are assigned to by id.
+    conditions[:conversation_id] = accessible_conversations.pluck(:id) unless administrator?
     conditions
   end
 

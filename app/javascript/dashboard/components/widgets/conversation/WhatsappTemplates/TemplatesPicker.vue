@@ -5,7 +5,9 @@ import { useFunctionGetter, useStore } from 'dashboard/composables/store';
 import {
   COMPONENT_TYPES,
   MEDIA_FORMATS,
+  TEMPLATE_GROUPS,
   findComponentByType,
+  getTemplateGroup,
 } from 'dashboard/helper/templateHelper';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { useI18n } from 'vue-i18n';
@@ -23,17 +25,44 @@ const { t } = useI18n();
 const store = useStore();
 const query = ref('');
 const isRefreshing = ref(false);
+const activeGroup = ref(TEMPLATE_GROUPS.ALL);
 
 const whatsAppTemplateMessages = useFunctionGetter(
   'inboxes/getFilteredWhatsAppTemplates',
   toRef(props, 'inboxId')
 );
 
-const filteredTemplateMessages = computed(() =>
-  whatsAppTemplateMessages.value.filter(template =>
-    template.name.toLowerCase().includes(query.value.toLowerCase())
+const groupCounts = computed(() =>
+  whatsAppTemplateMessages.value.reduce((counts, template) => {
+    const group = getTemplateGroup(template);
+    counts[group] = (counts[group] ?? 0) + 1;
+    return counts;
+  }, {})
+);
+
+// Only surface groups that actually have templates, plus `All`.
+const availableGroups = computed(() =>
+  Object.values(TEMPLATE_GROUPS).filter(
+    group => group === TEMPLATE_GROUPS.ALL || groupCounts.value[group]
   )
 );
+
+const filteredTemplateMessages = computed(() =>
+  whatsAppTemplateMessages.value.filter(
+    template =>
+      template.name.toLowerCase().includes(query.value.toLowerCase()) &&
+      (activeGroup.value === TEMPLATE_GROUPS.ALL ||
+        getTemplateGroup(template) === activeGroup.value)
+  )
+);
+
+const groupCountFor = group =>
+  group === TEMPLATE_GROUPS.ALL
+    ? whatsAppTemplateMessages.value.length
+    : groupCounts.value[group];
+
+const isUtilityTemplate = template =>
+  template.category?.toUpperCase() === 'UTILITY';
 
 const getTemplateBody = template => {
   return findComponentByType(template, COMPONENT_TYPES.BODY)?.text || '';
@@ -96,6 +125,22 @@ const refreshTemplates = async () => {
         />
       </button>
     </div>
+    <div class="flex flex-wrap gap-1.5 mb-2.5">
+      <button
+        v-for="group in availableGroups"
+        :key="group"
+        class="px-2.5 py-1 text-xs font-medium rounded-lg outline outline-1"
+        :class="
+          activeGroup === group
+            ? 'bg-n-brand text-white outline-n-brand'
+            : 'bg-n-alpha-black2 text-n-slate-12 outline-n-weak hover:outline-n-slate-6'
+        "
+        @click="activeGroup = group"
+      >
+        {{ t(`WHATSAPP_TEMPLATES.PICKER.GROUPS.${group}`) }}
+        <span class="opacity-70">({{ groupCountFor(group) }})</span>
+      </button>
+    </div>
     <div
       class="bg-n-background outline-n-container outline outline-1 rounded-lg max-h-[18.75rem] overflow-y-auto p-2.5"
     >
@@ -105,16 +150,33 @@ const refreshTemplates = async () => {
           @click="emit('onSelect', template)"
         >
           <div>
-            <div class="flex justify-between items-center mb-2.5">
+            <div class="flex justify-between items-center gap-2 mb-2.5">
               <p class="text-sm">
                 {{ template.name }}
               </p>
-              <span
-                class="inline-block px-2 py-1 text-xs leading-none rounded-lg cursor-default bg-n-slate-3 text-n-slate-12"
-              >
-                {{ t('WHATSAPP_TEMPLATES.PICKER.LABELS.LANGUAGE') }}:
-                {{ template.language }}
-              </span>
+              <div class="flex flex-shrink-0 gap-1 items-center">
+                <span
+                  class="inline-block px-2 py-1 text-xs font-semibold leading-none tracking-wide uppercase rounded-lg cursor-default outline outline-1"
+                  :class="
+                    isUtilityTemplate(template)
+                      ? 'bg-n-teal-2 text-n-teal-11 outline-n-teal-4'
+                      : 'bg-n-amber-2 text-n-amber-11 outline-n-amber-4'
+                  "
+                  :title="
+                    isUtilityTemplate(template)
+                      ? t('WHATSAPP_TEMPLATES.PICKER.CATEGORY_HINT.UTILITY')
+                      : t('WHATSAPP_TEMPLATES.PICKER.CATEGORY_HINT.MARKETING')
+                  "
+                >
+                  {{ template.category }}
+                </span>
+                <span
+                  class="inline-block px-2 py-1 text-xs leading-none rounded-lg cursor-default bg-n-slate-3 text-n-slate-12"
+                >
+                  {{ t('WHATSAPP_TEMPLATES.PICKER.LABELS.LANGUAGE') }}:
+                  {{ template.language }}
+                </span>
+              </div>
             </div>
             <!-- Header -->
             <div v-if="getTemplateHeader(template)" class="mb-3">
@@ -173,13 +235,6 @@ const refreshTemplates = async () => {
                 </span>
               </div>
             </div>
-
-            <div class="mt-3">
-              <p class="text-xs font-medium text-n-slate-11">
-                {{ t('WHATSAPP_TEMPLATES.PICKER.CATEGORY') || 'CATEGORY' }}
-              </p>
-              <p class="text-sm">{{ template.category }}</p>
-            </div>
           </div>
         </button>
         <hr
@@ -195,7 +250,12 @@ const refreshTemplates = async () => {
             <strong>{{ query }}</strong>
           </p>
         </div>
-        <div v-else-if="!whatsAppTemplateMessages.length" class="space-y-4">
+        <div v-else-if="whatsAppTemplateMessages.length">
+          <p class="text-n-slate-11">
+            {{ t('WHATSAPP_TEMPLATES.PICKER.NO_TEMPLATES_IN_GROUP') }}
+          </p>
+        </div>
+        <div v-else class="space-y-4">
           <p class="text-n-slate-11">
             {{ t('WHATSAPP_TEMPLATES.PICKER.NO_TEMPLATES_AVAILABLE') }}
           </p>

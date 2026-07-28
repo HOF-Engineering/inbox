@@ -157,7 +157,9 @@ RSpec.describe Captain::Copilot::ChatService do
     end
 
     it 'includes current viewing history when conversation_id is present' do
-      service = described_class.new(assistant, { conversation_id: conversation.display_id })
+      create(:inbox_member, user: user, inbox: inbox)
+      conversation.update!(assignee: user)
+      service = described_class.new(assistant, { user_id: user.id, conversation_id: conversation.display_id })
       messages = service.messages
 
       viewing_history = messages.find { |m| m[:content].include?('You are currently viewing the conversation') }

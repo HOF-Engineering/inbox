@@ -26,14 +26,25 @@ class SearchService
     @accessable_inbox_ids ||= @current_user.assigned_inboxes.pluck(:id)
   end
 
+  def administrator?
+    account_user.administrator?
+  end
+
+  # SECURITY-CRITICAL: search does not go through ConversationFinder, so it has to apply
+  # the assigned-only boundary itself for every conversation and message query.
+  def accessible_conversations
+    scope = current_account.conversations.where(inbox_id: accessable_inbox_ids)
+    administrator? ? scope : scope.visible_to_agent(current_user)
+  end
+
   def search_query
     @search_query ||= params[:q].to_s.strip
   end
 
   def filter_conversations
-    conversations_query = current_account.conversations.where(inbox_id: accessable_inbox_ids)
-                                         .joins('INNER JOIN contacts ON conversations.contact_id = contacts.id')
-                                         .where("cast(conversations.display_id as text) ILIKE :search OR contacts.name ILIKE :search OR contacts.email
+    conversations_query = accessible_conversations
+                          .joins('INNER JOIN contacts ON conversations.contact_id = contacts.id')
+                          .where("cast(conversations.display_id as text) ILIKE :search OR contacts.name ILIKE :search OR contacts.email
                             ILIKE :search OR contacts.phone_number ILIKE :search OR contacts.identifier ILIKE :search", search: "%#{search_query}%")
 
     if current_account.feature_enabled?('advanced_search')
@@ -107,6 +118,7 @@ class SearchService
   def message_base_query
     query = current_account.messages.where('created_at >= ?', 3.months.ago)
     query = query.where(inbox_id: accessable_inbox_ids) unless should_skip_inbox_filtering?
+    query = query.where(conversation_id: accessible_conversations.select(:id)) unless administrator?
     query
   end
 
@@ -149,12 +161,10 @@ class SearchService
     accessable_inbox_ids.include?(inbox_id)
   end
 
+  # Only administrators may skip inbox filtering. Agents who happen to be members of every
+  # inbox previously had all filtering dropped, which leaked other agents' messages.
   def should_skip_inbox_filtering?
-    account_user.administrator? || user_has_access_to_all_inboxes?
-  end
-
-  def user_has_access_to_all_inboxes?
-    accessable_inbox_ids.sort == current_account.inboxes.pluck(:id).sort
+    administrator?
   end
 
   def use_gin_search

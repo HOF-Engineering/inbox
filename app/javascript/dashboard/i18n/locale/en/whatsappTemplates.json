@@ -15,7 +15,19 @@
       "CATEGORY": "Category",
       "MEDIA_CONTENT": "Media Content",
       "MEDIA_CONTENT_FALLBACK": "media content",
+      "NO_TEMPLATES_IN_GROUP": "No templates in this group.",
       "NO_TEMPLATES_AVAILABLE": "No WhatsApp templates available. Click refresh to sync templates from WhatsApp.",
+      "GROUPS": {
+        "ALL": "All",
+        "GREETINGS": "Greetings",
+        "FOLLOW_UPS": "Follow-ups",
+        "QUOTES_AND_DETAILS": "Quotes & Details",
+        "OTHER": "Other"
+      },
+      "CATEGORY_HINT": {
+        "UTILITY": "Utility template - preferred for replies to an active conversation.",
+        "MARKETING": "Marketing template - higher cost and stricter delivery rules. Prefer a Utility template when possible."
+      },
       "REFRESH_BUTTON": "Refresh templates",
       "REFRESH_SUCCESS": "Templates refresh initiated. It may take a couple of minutes to update.",
       "REFRESH_ERROR": "Failed to refresh templates. Please try again.",

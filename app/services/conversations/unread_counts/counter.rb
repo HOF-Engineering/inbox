@@ -2,9 +2,11 @@ class Conversations::UnreadCounts::Counter
   include ::Conversations::UnreadCounts::BuildLockKeys
   include ::Conversations::UnreadCounts::FilterCounter
 
-  MANAGE_ALL_PERMISSION = 'conversation_manage'.freeze
-  UNASSIGNED_PERMISSION = 'conversation_unassigned_manage'.freeze
-  PARTICIPATING_PERMISSION = 'conversation_participating_manage'.freeze
+  CONVERSATION_PERMISSIONS = %w[
+    conversation_manage
+    conversation_unassigned_manage
+    conversation_participating_manage
+  ].freeze
   BUILD_LOCK_TTL = 15.minutes.to_i
   BUILD_WAIT_TIMEOUT = 30.seconds.to_i
   BUILD_WAIT_INTERVAL = 0.1.seconds
@@ -103,8 +105,6 @@ class Conversations::UnreadCounts::Counter
     case permission_mode
     when :base
       [store.inbox_key(account.id, inbox_id)]
-    when :unassigned_and_mine
-      [store.inbox_unassigned_key(account.id, inbox_id), store.inbox_assignee_key(account.id, inbox_id, user.id)]
     when :mine
       [store.inbox_assignee_key(account.id, inbox_id, user.id)]
     end
@@ -114,11 +114,6 @@ class Conversations::UnreadCounts::Counter
     case permission_mode
     when :base
       [store.label_inbox_key(account.id, label_id, inbox_id)]
-    when :unassigned_and_mine
-      [
-        store.label_inbox_unassigned_key(account.id, label_id, inbox_id),
-        store.label_inbox_assignee_key(account.id, label_id, inbox_id, user.id)
-      ]
     when :mine
       [store.label_inbox_assignee_key(account.id, label_id, inbox_id, user.id)]
     end
@@ -128,11 +123,6 @@ class Conversations::UnreadCounts::Counter
     case permission_mode
     when :base
       [store.team_inbox_key(account.id, team_id, inbox_id)]
-    when :unassigned_and_mine
-      [
-        store.team_inbox_unassigned_key(account.id, team_id, inbox_id),
-        store.team_inbox_assignee_key(account.id, team_id, inbox_id, user.id)
-      ]
     when :mine
       [store.team_inbox_assignee_key(account.id, team_id, inbox_id, user.id)]
     end
@@ -148,19 +138,20 @@ class Conversations::UnreadCounts::Counter
   end
 
   def assignment_mode?
-    %i[unassigned_and_mine mine].include?(permission_mode)
+    permission_mode == :mine
   end
 
+  # SECURITY-CRITICAL: the shared cache holds memberships for the whole account, so this is
+  # what decides which keys a user may read. Only administrators get the account-wide (:base)
+  # keys; every agent is limited to their own assignee keys.
   def permission_mode
     @permission_mode ||=
-      if !custom_role_agent? || permissions.include?(MANAGE_ALL_PERMISSION)
+      if account_user&.administrator?
         :base
-      elsif permissions.include?(UNASSIGNED_PERMISSION)
-        :unassigned_and_mine
-      elsif permissions.include?(PARTICIPATING_PERMISSION)
-        :mine
-      else
+      elsif custom_role_agent? && !permissions.intersect?(CONVERSATION_PERMISSIONS)
         :none
+      else
+        :mine
       end
   end
 

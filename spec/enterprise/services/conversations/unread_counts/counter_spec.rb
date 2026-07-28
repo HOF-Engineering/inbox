@@ -19,27 +19,28 @@ RSpec.describe Conversations::UnreadCounts::Counter do
     store.clear_all_account!(account.id)
   end
 
-  it 'uses base counts for custom roles with conversation_manage permission' do
+  it 'counts only assigned conversations for custom roles with conversation_manage permission' do
     account_user.update!(custom_role: create(:custom_role, account: account, permissions: ['conversation_manage']))
+    create_unread_conversation(account: account, inbox: inbox, labels: [label.title], assignee: agent, team: team)
     create_unread_conversation(account: account, inbox: inbox, labels: [label.title], assignee: other_agent, team: team)
     create_unread_conversation(account: account, inbox: inbox, labels: [label.title], team: team)
 
     result = described_class.new(account: account, user: agent).perform
 
     expect(result).to eq(
-      all_count: 2,
-      inboxes: { inbox.id.to_s => 2 },
-      labels: { label.id.to_s => 2 },
-      teams: { team.id.to_s => 2 },
+      all_count: 1,
+      inboxes: { inbox.id.to_s => 1 },
+      labels: { label.id.to_s => 1 },
+      teams: { team.id.to_s => 1 },
       mentions_count: 0,
       participating_count: 0,
-      unattended_count: 2,
+      unattended_count: 1,
       folders: {}
     )
-    expect(store.assignment_ready?(account.id)).to be(false)
+    expect(store.assignment_ready?(account.id)).to be(true)
   end
 
-  it 'counts assigned and unassigned conversations for conversation_unassigned_manage permission' do
+  it 'excludes unassigned conversations for conversation_unassigned_manage permission' do
     account_user.update!(custom_role: create(:custom_role, account: account, permissions: ['conversation_unassigned_manage']))
     create_unread_conversation(account: account, inbox: inbox, labels: [label.title], assignee: agent, team: team)
     create_unread_conversation(account: account, inbox: inbox, labels: [label.title], team: team)
@@ -49,13 +50,13 @@ RSpec.describe Conversations::UnreadCounts::Counter do
     result = described_class.new(account: account, user: agent).perform
 
     expect(result).to eq(
-      all_count: 2,
-      inboxes: { inbox.id.to_s => 2 },
-      labels: { label.id.to_s => 2 },
-      teams: { team.id.to_s => 2 },
+      all_count: 1,
+      inboxes: { inbox.id.to_s => 1 },
+      labels: { label.id.to_s => 1 },
+      teams: { team.id.to_s => 1 },
       mentions_count: 0,
       participating_count: 0,
-      unattended_count: 2,
+      unattended_count: 1,
       folders: {}
     )
     expect(store.assignment_ready?(account.id)).to be(true)
@@ -76,7 +77,8 @@ RSpec.describe Conversations::UnreadCounts::Counter do
       labels: { label.id.to_s => 1 },
       teams: { team.id.to_s => 1 },
       mentions_count: 0,
-      participating_count: 1,
+      # participation alone no longer grants visibility, so it is not counted
+      participating_count: 0,
       unattended_count: 1,
       folders: {}
     )

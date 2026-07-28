@@ -34,7 +34,6 @@ class ConversationFinder
   def initialize(current_user, params)
     @current_user = current_user
     @current_account = current_user.account
-    @is_admin = current_account.account_users.find_by(user_id: current_user.id)&.administrator?
     @params = params
   end
 
@@ -105,6 +104,9 @@ class ConversationFinder
   end
 
   def find_conversation_by_inbox
+    # SECURITY-CRITICAL: this starts from the whole account scope. It is narrowed to what
+    # the user may see by `Conversations::PermissionFilterService` in `find_all_conversations`;
+    # never return from this method without that filter being applied.
     @conversations = current_account.conversations
 
     return unless params[:inbox_id]

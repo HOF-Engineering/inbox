@@ -4,7 +4,10 @@ RSpec.describe BulkActionsJob do
   subject(:job) { described_class.perform_later(account: account, params: params, user: agent) }
 
   let(:account) { create(:account) }
-  let!(:agent) { create(:user, account: account, role: :agent) }
+  # An administrator, so these examples cover the bulk-update mechanics rather than the
+  # assigned-only visibility boundary (asserted separately below and in
+  # spec/requests/agent_conversation_isolation_spec.rb).
+  let!(:agent) { create(:user, account: account, role: :administrator) }
   let!(:conversation_1) { create(:conversation, account_id: account.id, status: :open) }
   let!(:conversation_2) { create(:conversation, account_id: account.id, status: :open) }
   let!(:conversation_3) { create(:conversation, account_id: account.id, status: :open) }
@@ -79,17 +82,37 @@ RSpec.describe BulkActionsJob do
     end
 
     it 'skips conversations whose inbox the agent does not belong to' do
-      forbidden_conversation = create(:conversation, account_id: account.id, status: :open)
+      restricted_agent = create(:user, account: account, role: :agent)
+      create(:inbox_member, inbox: conversation_1.inbox, user: restricted_agent)
+      conversation_1.update!(assignee: restricted_agent)
+      forbidden_conversation = create(:conversation, account_id: account.id, status: :open, assignee: restricted_agent)
       params = {
         type: 'Conversation',
         fields: { status: 'resolved' },
         ids: [conversation_1.display_id, forbidden_conversation.display_id]
       }
 
-      described_class.perform_now(account: account, params: params, user: agent)
+      described_class.perform_now(account: account, params: params, user: restricted_agent)
 
       expect(conversation_1.reload.status).to eq('resolved')
       expect(forbidden_conversation.reload.status).to eq('open')
+    end
+
+    it 'skips conversations that are not assigned to the agent' do
+      restricted_agent = create(:user, account: account, role: :agent)
+      create(:inbox_member, inbox: conversation_1.inbox, user: restricted_agent)
+      create(:inbox_member, inbox: conversation_2.inbox, user: restricted_agent)
+      conversation_1.update!(assignee: restricted_agent)
+      params = {
+        type: 'Conversation',
+        fields: { status: 'resolved' },
+        ids: [conversation_1.display_id, conversation_2.display_id]
+      }
+
+      described_class.perform_now(account: account, params: params, user: restricted_agent)
+
+      expect(conversation_1.reload.status).to eq('resolved')
+      expect(conversation_2.reload.status).to eq('open')
     end
   end
 end

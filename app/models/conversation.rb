@@ -78,6 +78,9 @@ class Conversation < ApplicationRecord
   scope :unassigned, -> { where(assignee_id: nil) }
   scope :assigned, -> { where.not(assignee_id: nil) }
   scope :assigned_to, ->(agent) { where(assignee_id: agent.id) }
+  # Canonical agent visibility boundary: a non-administrator may only ever read
+  # conversations assigned to them. Every read path must funnel through this scope.
+  scope :visible_to_agent, ->(user) { where(assignee_id: user.id) }
   scope :sort_on_unread, lambda { |_direction|
     order(unread_messages_count_arel.desc).sort_on_last_activity_at('desc')
   }

@@ -1,6 +1,8 @@
 module Enterprise::Conversations::PermissionFilterService
   def perform
-    return filter_by_permissions(permissions) if user_has_custom_role?
+    # `restrict_to_assigned` keeps custom roles from ever widening beyond the
+    # assigned-only boundary enforced by the OSS service.
+    return restrict_to_assigned(filter_by_permissions(permissions)) if user_has_custom_role?
 
     super
   end

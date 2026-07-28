@@ -177,37 +177,102 @@ const userPermissions = computed(() => {
 
 const isAgent = computed(() => currentUser.value?.role === 'agent');
 
+const AGENT_ASSIGNEE_TABS = [
+  wootConstants.ASSIGNEE_TYPE.ME,
+  wootConstants.ASSIGNEE_TYPE.UNREAD,
+];
+
+const isUnreadTabActive = computed(
+  () => activeAssigneeTab.value === wootConstants.ASSIGNEE_TYPE.UNREAD
+);
+
+// The Unread tab never widens access: it reuses the query the role is already entitled to
+// (agents: their own conversations, administrators: everything they can see).
+const unreadScopeAssigneeType = computed(() =>
+  isAgent.value
+    ? wootConstants.ASSIGNEE_TYPE.ME
+    : wootConstants.ASSIGNEE_TYPE.ALL
+);
+
+// The assignee_type actually sent to the API and used for pagination bookkeeping.
+const serverAssigneeType = computed(() =>
+  isUnreadTabActive.value
+    ? unreadScopeAssigneeType.value
+    : activeAssigneeTab.value
+);
+
+function sortByUnreadStatus(conversations) {
+  return [...conversations].sort((a, b) => {
+    const unreadCountDiff = (b.unread_count || 0) - (a.unread_count || 0);
+    if (unreadCountDiff !== 0) return unreadCountDiff;
+
+    return (b.last_activity_at || 0) - (a.last_activity_at || 0);
+  });
+}
+
+function conversationsForAssigneeType(assigneeType, filters) {
+  if (assigneeType === wootConstants.ASSIGNEE_TYPE.ME) {
+    return [...mineChatsList.value(filters)];
+  }
+  if (assigneeType === wootConstants.ASSIGNEE_TYPE.UNASSIGNED) {
+    return [...unAssignedChatsList.value(filters)];
+  }
+  return [...allChatList.value(filters)];
+}
+
+// Everything `applyPageFilters` needs, without `page`/`assigneeType`. Kept separate so the
+// unread count can be derived without depending on `conversationListPagination`.
+const conversationPageFilters = computed(() => ({
+  inboxId: props.conversationInbox ? props.conversationInbox : undefined,
+  status: activeStatus.value,
+  labels: props.label ? [props.label] : undefined,
+  teamId: props.teamId || undefined,
+  conversationType: props.conversationType || undefined,
+}));
+
+const unreadConversations = computed(() =>
+  sortByUnreadStatus(
+    conversationsForAssigneeType(
+      unreadScopeAssigneeType.value,
+      conversationPageFilters.value
+    ).filter(conversation => (conversation.unread_count || 0) > 0)
+  )
+);
+
 const assigneeTabItems = computed(() => {
   return filterItemsByPermission(
     ASSIGNEE_TYPE_TAB_PERMISSIONS,
     userPermissions.value,
     item => item.permissions
   )
-    .filter(({ key }) => !isAgent.value || key === 'me')
+    .filter(({ key }) => !isAgent.value || AGENT_ASSIGNEE_TABS.includes(key))
     .map(({ key, count: countKey }) => ({
       key,
       name: t(`CHAT_LIST.ASSIGNEE_TYPE_TABS.${key}`),
-      count: conversationStats.value[countKey] || 0,
+      count:
+        key === wootConstants.ASSIGNEE_TYPE.UNREAD
+          ? unreadConversations.value.length
+          : conversationStats.value[countKey] || 0,
     }));
 });
 
 const showAssigneeInConversationCard = computed(() => {
   return (
     hasAppliedFiltersOrActiveFolders.value ||
-    activeAssigneeTab.value === wootConstants.ASSIGNEE_TYPE.ALL
+    serverAssigneeType.value === wootConstants.ASSIGNEE_TYPE.ALL
   );
 });
 
 const currentPageFilterKey = computed(() => {
   return hasAppliedFiltersOrActiveFolders.value
     ? 'appliedFilters'
-    : activeAssigneeTab.value;
+    : serverAssigneeType.value;
 });
 
 const inbox = useFunctionGetter('inboxes/getInbox', activeInbox);
 const currentPage = useFunctionGetter(
   'conversationPage/getCurrentPageFilter',
-  activeAssigneeTab
+  serverAssigneeType
 );
 const currentFiltersPage = useFunctionGetter(
   'conversationPage/getCurrentPageFilter',
@@ -252,14 +317,10 @@ const conversationListPagination = computed(() => {
 
 const conversationFilters = computed(() => {
   return {
-    inboxId: props.conversationInbox ? props.conversationInbox : undefined,
-    assigneeType: activeAssigneeTab.value,
-    status: activeStatus.value,
+    ...conversationPageFilters.value,
+    assigneeType: serverAssigneeType.value,
     sortBy: activeSortBy.value,
     page: conversationListPagination.value,
-    labels: props.label ? [props.label] : undefined,
-    teamId: props.teamId || undefined,
-    conversationType: props.conversationType || undefined,
   };
 });
 
@@ -301,24 +362,15 @@ const pageTitle = computed(() => {
 });
 
 function filterByAssigneeTab(conversations) {
-  if (activeAssigneeTab.value === wootConstants.ASSIGNEE_TYPE.ME) {
+  if (serverAssigneeType.value === wootConstants.ASSIGNEE_TYPE.ME) {
     return conversations.filter(
       c => c.meta?.assignee?.id === currentUser.value?.id
     );
   }
-  if (activeAssigneeTab.value === wootConstants.ASSIGNEE_TYPE.UNASSIGNED) {
+  if (serverAssigneeType.value === wootConstants.ASSIGNEE_TYPE.UNASSIGNED) {
     return conversations.filter(c => !c.meta?.assignee);
   }
   return [...conversations];
-}
-
-function sortByUnreadStatus(conversations) {
-  return [...conversations].sort((a, b) => {
-    const unreadCountDiff = (b.unread_count || 0) - (a.unread_count || 0);
-    if (unreadCountDiff !== 0) return unreadCountDiff;
-
-    return (b.last_activity_at || 0) - (a.last_activity_at || 0);
-  });
 }
 
 const conversationList = computed(() => {
@@ -332,12 +384,19 @@ const conversationList = computed(() => {
       localConversationList = filterByAssigneeTab(
         participatingChatsList.value(filters)
       );
-    } else if (activeAssigneeTab.value === 'me') {
-      localConversationList = [...mineChatsList.value(filters)];
-    } else if (activeAssigneeTab.value === 'unassigned') {
-      localConversationList = [...unAssignedChatsList.value(filters)];
     } else {
-      localConversationList = [...allChatList.value(filters)];
+      localConversationList = conversationsForAssigneeType(
+        serverAssigneeType.value,
+        filters
+      );
+    }
+
+    if (isUnreadTabActive.value) {
+      localConversationList = sortByUnreadStatus(
+        localConversationList.filter(
+          conversation => (conversation.unread_count || 0) > 0
+        )
+      );
     }
   } else {
     localConversationList = [...chatLists.value];
@@ -497,7 +556,7 @@ function initializeExistingFilterToModal() {
   const statusFilter = initializeStatusAndAssigneeFilterToModal(
     activeStatus.value,
     currentUserDetails.value,
-    activeAssigneeTab.value
+    serverAssigneeType.value
   );
   // TODO: Remove the usage of useCamelCase after migrating useFilter to camelcase
   if (statusFilter) {

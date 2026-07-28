@@ -21,7 +21,7 @@ RSpec.describe Conversations::UnreadCounts::Counter do
   end
 
   it 'builds the base cache on demand' do
-    create_unread_conversation(account: account, inbox: visible_inbox, labels: [label.title], team: visible_team)
+    create_unread_conversation(account: account, inbox: visible_inbox, labels: [label.title], team: visible_team, assignee: agent)
 
     described_class.new(account: account, user: agent).perform
 
@@ -35,7 +35,7 @@ RSpec.describe Conversations::UnreadCounts::Counter do
     allow(lock_manager).to receive(:with_lock).and_yield.and_return(true)
     allow(lock_manager).to receive(:with_lock).with(lock_key, described_class::BUILD_LOCK_TTL).and_yield.and_return(true)
 
-    create_unread_conversation(account: account, inbox: visible_inbox, labels: [label.title], team: visible_team)
+    create_unread_conversation(account: account, inbox: visible_inbox, labels: [label.title], team: visible_team, assignee: agent)
 
     described_class.new(account: account, user: agent).perform
 
@@ -49,6 +49,7 @@ RSpec.describe Conversations::UnreadCounts::Counter do
     allow(Redis::LockManager).to receive(:new).and_return(lock_manager)
     allow(counter).to receive(:wait_for_cache_ready) do
       store.mark_base_ready!(account.id)
+      store.mark_assignment_ready!(account.id)
       store.mark_filters_ready!(account.id, agent.id)
     end
     expect(Conversations::UnreadCounts::Builder).not_to receive(:new)
@@ -68,6 +69,7 @@ RSpec.describe Conversations::UnreadCounts::Counter do
       attempts += 1
       store.mark_base_ready!(account.id) if attempts == 2
     end
+    allow(builder).to receive(:build_assignment!) { store.mark_assignment_ready!(account.id) }
     allow(builder).to receive(:build_filters_for!) { store.mark_filters_ready!(account.id, agent.id) }
 
     described_class.new(account: account, user: agent).perform
@@ -76,9 +78,14 @@ RSpec.describe Conversations::UnreadCounts::Counter do
     expect(store.base_ready?(account.id)).to be(true)
   end
 
-  it 'counts unread conversations only across inboxes visible to a normal agent' do
+  it 'counts only the unread conversations assigned to a normal agent' do
+    other_agent = create(:user, account: account, role: :agent)
+    create(:inbox_member, user: other_agent, inbox: visible_inbox)
+    create_unread_conversation(account: account, inbox: visible_inbox, labels: [label.title], team: visible_team, assignee: agent)
+    create_unread_conversation(account: account, inbox: hidden_inbox, labels: [label.title], team: visible_team, assignee: agent)
+    # another agent's conversation and an unassigned one in the same inbox must not be counted
+    create_unread_conversation(account: account, inbox: visible_inbox, labels: [label.title], team: visible_team, assignee: other_agent)
     create_unread_conversation(account: account, inbox: visible_inbox, labels: [label.title], team: visible_team)
-    create_unread_conversation(account: account, inbox: hidden_inbox, labels: [label.title], team: visible_team)
 
     result = described_class.new(account: account, user: agent).perform
 
@@ -113,7 +120,7 @@ RSpec.describe Conversations::UnreadCounts::Counter do
   end
 
   it 'does not return zero counts or labels hidden from the sidebar' do
-    create_unread_conversation(account: account, inbox: visible_inbox, labels: [hidden_label.title], team: visible_team)
+    create_unread_conversation(account: account, inbox: visible_inbox, labels: [hidden_label.title], team: visible_team, assignee: agent)
 
     result = described_class.new(account: account, user: agent).perform
 
@@ -130,9 +137,9 @@ RSpec.describe Conversations::UnreadCounts::Counter do
   end
 
   it 'returns mention, participating, unattended, and valid folder unread counts for the user' do
-    mentioned_conversation = create_unread_conversation(account: account, inbox: visible_inbox)
-    participating_conversation = create_unread_conversation(account: account, inbox: visible_inbox)
-    resolved_conversation = create_unread_conversation(account: account, inbox: visible_inbox)
+    mentioned_conversation = create_unread_conversation(account: account, inbox: visible_inbox, assignee: agent)
+    participating_conversation = create_unread_conversation(account: account, inbox: visible_inbox, assignee: agent)
+    resolved_conversation = create_unread_conversation(account: account, inbox: visible_inbox, assignee: agent)
     resolved_conversation.update!(status: :resolved)
     valid_folder = create(:custom_filter, account: account, user: agent, filter_type: :conversation, query: filter_query('status', ['resolved']))
     invalid_folder = create(:custom_filter, account: account, user: agent, filter_type: :conversation, query: filter_query('unknown', ['open']))

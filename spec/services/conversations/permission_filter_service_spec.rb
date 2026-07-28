@@ -2,11 +2,13 @@ require 'rails_helper'
 
 RSpec.describe Conversations::PermissionFilterService do
   let(:account) { create(:account) }
-  let!(:conversation) { create(:conversation, account: account, inbox: inbox) }
-  let!(:another_conversation) { create(:conversation, account: account, inbox: inbox) }
   let(:admin) { create(:user, account: account, role: :administrator) }
   let(:agent) { create(:user, account: account, role: :agent) }
+  let(:another_agent) { create(:user, account: account, role: :agent) }
   let!(:inbox) { create(:inbox, account: account) }
+  let!(:conversation) { create(:conversation, account: account, inbox: inbox, assignee: agent) }
+  let!(:another_conversation) { create(:conversation, account: account, inbox: inbox, assignee: another_agent) }
+  let!(:unassigned_conversation) { create(:conversation, account: account, inbox: inbox, assignee: nil) }
 
   # This inbox_member is used to establish the agent's access to the inbox
   before { create(:inbox_member, user: agent, inbox: inbox) }
@@ -20,27 +22,29 @@ RSpec.describe Conversations::PermissionFilterService do
           account
         ).perform
 
-        expect(result).to include(conversation)
-        expect(result).to include(another_conversation)
-        expect(result.count).to eq(2)
+        expect(result).to include(conversation, another_conversation, unassigned_conversation)
+        expect(result.count).to eq(3)
       end
     end
 
     context 'when user is an agent' do
-      it 'returns all conversations with no further filtering' do
-        inbox_ids = agent.inboxes.where(account_id: account.id).pluck(:id)
-
-        # The base implementation returns all conversations
-        # expecting the caller to filter by assigned inboxes
+      it 'returns only the conversations assigned to the agent' do
         result = described_class.new(
-          account.conversations.where(inbox_id: inbox_ids),
+          account.conversations,
           agent,
           account
         ).perform
 
-        expect(result).to include(conversation)
-        expect(result).to include(another_conversation)
-        expect(result.count).to eq(2)
+        expect(result).to contain_exactly(conversation)
+      end
+
+      it 'excludes conversations from inboxes the agent is not a member of' do
+        other_inbox = create(:inbox, account: account)
+        other_inbox_conversation = create(:conversation, account: account, inbox: other_inbox, assignee: agent)
+
+        result = described_class.new(account.conversations, agent, account).perform
+
+        expect(result).not_to include(other_inbox_conversation)
       end
     end
   end

@@ -50,4 +50,10 @@ export const ASSIGNEE_TYPE_TAB_PERMISSIONS = {
       CONVERSATION_PARTICIPATING_PERMISSIONS,
     ],
   },
+  // `unread` narrows whichever query the role is entitled to, so it carries the same
+  // permissions as `me`. Its count is derived client side, not from conversationStats.
+  unread: {
+    count: null,
+    permissions: [...ROLES, ...CONVERSATION_PERMISSIONS],
+  },
 };

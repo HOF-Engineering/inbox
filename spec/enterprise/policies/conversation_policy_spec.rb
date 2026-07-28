@@ -48,15 +48,56 @@ RSpec.describe ConversationPolicy, type: :policy do
         expect(subject).to permit(context, conversation)
       end
 
-      it 'allows access to conversations where the agent is a participant' do
+      it 'denies access to conversations where the agent is only a participant' do
         conversation = create(:conversation, account: account, inbox: inbox, assignee: nil)
         create(:conversation_participant, conversation: conversation, account: account, user: agent)
 
-        expect(subject).to permit(context, conversation)
+        expect(subject).not_to permit(context, conversation)
       end
 
       it 'denies access to unrelated conversations' do
         conversation = create(:conversation, account: account, inbox: inbox, assignee: nil)
+
+        expect(subject).not_to permit(context, conversation)
+      end
+    end
+
+    context 'when role grants conversation_manage' do
+      let(:custom_role) { create(:custom_role, account: account, permissions: ['conversation_manage']) }
+
+      before do
+        agent_account_user.update!(role: :agent, custom_role: custom_role)
+      end
+
+      it 'allows access to conversations assigned to the agent' do
+        conversation = create(:conversation, account: account, inbox: inbox, assignee: agent)
+
+        expect(subject).to permit(context, conversation)
+      end
+
+      it 'denies access to conversations assigned to someone else' do
+        other_agent = create(:user, account: account, role: :agent)
+        conversation = create(:conversation, account: account, inbox: inbox, assignee: other_agent)
+
+        expect(subject).not_to permit(context, conversation)
+      end
+
+      it 'denies access to unassigned conversations' do
+        conversation = create(:conversation, account: account, inbox: inbox, assignee: nil)
+
+        expect(subject).not_to permit(context, conversation)
+      end
+    end
+
+    context 'when the custom role carries no conversation permission' do
+      let(:custom_role) { create(:custom_role, account: account, permissions: ['contact_manage']) }
+
+      before do
+        agent_account_user.update!(role: :agent, custom_role: custom_role)
+      end
+
+      it 'denies access even to its own conversation' do
+        conversation = create(:conversation, account: account, inbox: inbox, assignee: agent)
 
         expect(subject).not_to permit(context, conversation)
       end

@@ -1,3 +1,6 @@
+# NOTE: this finder performs NO authorization. It scopes messages to `@conversation` and
+# relies on the caller having already authorized that conversation
+# (`Api::V1::Accounts::Conversations::BaseController#conversation` -> `ConversationPolicy#show?`).
 class MessageFinder
   def initialize(conversation, params)
     @conversation = conversation

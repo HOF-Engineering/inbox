@@ -20,11 +20,28 @@ class Api::V1::Accounts::BulkActionsController < Api::V1::Accounts::BaseControll
   end
 
   def enqueue_conversation_job
+    check_authorization_for_conversation_action
     ::BulkActionsJob.perform_later(
       account: @current_account,
       user: current_user,
       params: conversation_params
     )
+  end
+
+  # SECURITY-CRITICAL: the job silently drops conversations the user cannot access, which made
+  # this endpoint indistinguishable from a successful bulk update. Reject the whole request
+  # instead so callers cannot probe or act on other agents' conversations.
+  def check_authorization_for_conversation_action
+    requested_ids = Array(params[:ids]).map(&:to_s).uniq
+    return if requested_ids.blank?
+
+    permitted_ids = Conversations::PermissionFilterService.new(
+      @current_account.conversations.where(display_id: requested_ids),
+      current_user,
+      @current_account
+    ).perform.pluck(:display_id).map(&:to_s)
+
+    raise Pundit::NotAuthorizedError if (requested_ids - permitted_ids).any?
   end
 
   def enqueue_contact_job

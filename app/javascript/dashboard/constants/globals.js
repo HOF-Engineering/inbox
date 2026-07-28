@@ -4,6 +4,9 @@ export default {
     ME: 'me',
     UNASSIGNED: 'unassigned',
     ALL: 'all',
+    // Presentational only: `unread` is never sent to the API, it narrows the list the
+    // role is already entitled to down to conversations with unread messages.
+    UNREAD: 'unread',
   },
   STATUS_TYPE: {
     OPEN: 'open',
