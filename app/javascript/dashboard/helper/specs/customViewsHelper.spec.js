@@ -134,13 +134,19 @@ describe('customViewsHelper', () => {
       ]);
     });
 
-    it('should return id and name if attribute_key is assignee_id', () => {
-      const filter = { attribute_key: 'assignee_id', values: [1] };
-      const params = { agents: [{ id: 1, name: 'test' }] };
-      expect(getValuesForFilter(filter, params)).toEqual({
-        id: 1,
-        name: 'test',
-      });
+    it('should return a list of ids and names if attribute_key is assignee_id', () => {
+      const filter = { attribute_key: 'assignee_id', values: [1, 2] };
+      const params = {
+        agents: [
+          { id: 1, name: 'test' },
+          { id: 2, name: 'second' },
+        ],
+      };
+      // assignees are multi select, so every selected agent has to survive a folder edit
+      expect(getValuesForFilter(filter, params)).toEqual([
+        { id: 1, name: 'test' },
+        { id: 2, name: 'second' },
+      ]);
     });
 
     it('should return id and name if attribute_key is inbox_id', () => {
@@ -216,10 +222,9 @@ describe('customViewsHelper', () => {
         allCustomAttributes: [],
         agents: [{ id: 1, name: 'test' }],
       };
-      expect(generateValuesForEditCustomViews(filter, params)).toEqual({
-        id: 1,
-        name: 'test',
-      });
+      expect(generateValuesForEditCustomViews(filter, params)).toEqual([
+        { id: 1, name: 'test' },
+      ]);
     });
 
     it('should return id and name if inboxType is not multi_select or search_select', () => {
@@ -233,10 +238,9 @@ describe('customViewsHelper', () => {
         allCustomAttributes: [],
         agents: [{ id: 1, name: 'test' }],
       };
-      expect(generateValuesForEditCustomViews(filter, params)).toEqual({
-        id: 1,
-        name: 'test',
-      });
+      expect(generateValuesForEditCustomViews(filter, params)).toEqual([
+        { id: 1, name: 'test' },
+      ]);
     });
 
     it('should return id and name if inboxType is undefined', () => {

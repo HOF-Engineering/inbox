@@ -161,7 +161,9 @@ export function useConversationFilterContext() {
       value: CONVERSATION_ATTRIBUTES.ASSIGNEE_ID,
       attributeName: t('FILTER.ATTRIBUTES.ASSIGNEE_NAME'),
       label: t('FILTER.ATTRIBUTES.ASSIGNEE_NAME'),
-      inputType: 'searchSelect',
+      // multiSelect so several agents can be picked in one row. `equal_to` already compiles
+      // to `IN (...)`, whereas two AND-ed single-value rows can never match one assignee.
+      inputType: 'multiSelect',
       options: agents.value.map(agent => {
         return {
           id: agent.id,

@@ -37,6 +37,14 @@ export const getValuesName = (values, list, idKey, nameKey) => {
   };
 };
 
+// Multi-value variant, for attributes that allow several selections in one row (assignees).
+// Returning only values[0] would silently drop the rest when a saved folder is edited.
+export const getValuesNames = (values, list, idKey, nameKey) =>
+  values.map(value => {
+    const item = list?.find(v => v[idKey] === value);
+    return { id: value, name: item ? item[nameKey] : value };
+  });
+
 const getValuesForContact = (values, contacts) => ({
   id: values[0],
   name:
@@ -97,7 +105,7 @@ export const getValuesForFilter = (filter, params) => {
     case 'status':
       return getValuesForStatus(values);
     case 'assignee_id':
-      return getValuesName(values, agents, 'id', 'name');
+      return getValuesNames(values, agents, 'id', 'name');
     case 'inbox_id':
       return getValuesName(values, inboxes, 'id', 'name');
     case 'team_id':
