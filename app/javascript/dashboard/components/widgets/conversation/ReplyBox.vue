@@ -170,6 +170,9 @@ export default {
     showContentTemplates() {
       return this.isATwilioWhatsAppChannel && !this.isPrivate;
     },
+    showWhatsappForm() {
+      return this.isAWhatsAppChannel && !this.isPrivate;
+    },
     isPrivate() {
       if (
         this.currentChat.can_reply ||
@@ -755,6 +758,17 @@ export default {
     },
     openWhatsappTemplateModal() {
       this.showWhatsAppTemplatesModal = true;
+    },
+    async sendWhatsappForm() {
+      try {
+        await this.$store.dispatch('sendWhatsappForm', this.currentChat.id);
+        useAlert(this.$t('CONVERSATION.REPLYBOX.FORM_SENT_SUCCESS'));
+      } catch (error) {
+        const errorMessage =
+          error?.response?.data?.error ||
+          this.$t('CONVERSATION.REPLYBOX.FORM_SENT_ERROR');
+        useAlert(errorMessage);
+      }
     },
     hideWhatsappTemplatesModal() {
       this.showWhatsAppTemplatesModal = false;
@@ -1406,6 +1420,7 @@ export default {
         :enable-multiple-file-upload="enableMultipleFileUpload"
         :enable-whats-app-templates="showWhatsappTemplates"
         :enable-content-templates="showContentTemplates"
+        :enable-whats-app-form="showWhatsappForm"
         :inbox="inbox"
         :is-on-private-note="isOnPrivateNote"
         :is-recording-audio="isRecordingAudio"
@@ -1433,6 +1448,7 @@ export default {
         @select-content-template="openContentTemplateModal"
         @toggle-insert-article="toggleInsertArticle"
         @toggle-quoted-reply="toggleQuotedReply"
+        @send-whatsapp-form="sendWhatsappForm"
       />
     </Transition>
 

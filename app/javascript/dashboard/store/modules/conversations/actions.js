@@ -472,6 +472,10 @@ const actions = {
     await ConversationApi.sendEmailTranscript({ conversationId, email });
   },
 
+  sendWhatsappForm: async (_, conversationId) => {
+    await ConversationApi.sendForm(conversationId);
+  },
+
   updateCustomAttributes: async (
     { commit },
     { conversationId, customAttributes }

@@ -88,6 +88,10 @@ class ConversationApi extends ApiClient {
     });
   }
 
+  sendForm(conversationId) {
+    return axios.post(`${this.url}/${conversationId}/send_form`);
+  }
+
   mute(conversationId) {
     return axios.post(`${this.url}/${conversationId}/mute`);
   }

@@ -88,6 +88,10 @@ export default {
       type: Boolean,
       default: false,
     },
+    enableWhatsAppForm: {
+      type: Boolean,
+      default: false,
+    },
     enableContentTemplates: {
       type: Boolean,
       default: false,
@@ -131,6 +135,7 @@ export default {
     'selectWhatsappTemplate',
     'selectContentTemplate',
     'toggleQuotedReply',
+    'sendWhatsappForm',
   ],
   setup(props) {
     const { setSignatureFlagForInbox, fetchSignatureFlagFromUISettings } =
@@ -366,6 +371,15 @@ export default {
         faded
         sm
         @click="$emit('selectContentTemplate')"
+      />
+      <NextButton
+        v-if="enableWhatsAppForm"
+        v-tooltip.top-end="'Send intake form'"
+        icon="i-ph-clipboard-text"
+        slate
+        faded
+        sm
+        @click="$emit('sendWhatsappForm')"
       />
       <VideoCallButton
         v-if="
